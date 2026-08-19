@@ -14,7 +14,12 @@ dev = [
     "torch",            # 数值对齐测试的参考实现
     "tokenizers",       # T3/B1: HF BPE 参考对齐与吞吐对比
     "huggingface_hub",  # 数据集下载
+    "transformers",     # T7: Qwen2.5 权重加载与对比验证
+    "safetensors",      # T7: 加载 .safetensors 格式权重
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]

@@ -219,7 +219,9 @@
       <div class="dim">$ python3 -m pytest tests/ -q</div>
       <div class="bar"><span class="f">FFFFFFFFFFFF</span><span class="dim"> ← test_bpe.py (12)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← test_tensor.py (49)</span></div>
-      <div><span class="f">61 failed</span><span class="dim">, 0 passed —— 出题完成，等待闯关。红变绿的那一刻才算「会了」。</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← test_transformer.py (35)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← test_trainer.py (26)</span></div>
+      <div><span class="f">122 failed</span><span class="dim">, 0 passed —— M1 全部出题完成，等待闯关。红变绿的那一刻才算「会了」。</span></div>
     </div>
   </div>
 
@@ -273,7 +275,7 @@
         <div class="mod">
           <span class="id">M1</span>
           <span class="name">模型基础<span class="desc">BPE → Autograd → Qwen-like Transformer → 训练框架，手搓浓度最高的模块</span></span>
-          <span class="lights"><i class="lt red"></i><i class="lt red"></i><i class="lt"></i><i class="lt"></i></span>
+          <span class="lights"><i class="lt red"></i><i class="lt red"></i><i class="lt red"></i><i class="lt red"></i></span>
         </div>
         <div class="phases">
           <div class="phase">
@@ -288,13 +290,13 @@
           </div>
           <div class="phase">
             <span class="pid">Phase 1.2</span>
-            <span>Qwen-like Transformer —— RoPE、GQA、KV cache 对齐、官方权重映射验证</span>
-            <span class="status st-dim">未备课</span>
+            <span>Qwen-like Transformer —— RoPE、GQA、KV cache 对齐、官方 Qwen2.5-0.5B 权重映射验证</span>
+            <span class="status st-red">35 tests · 红</span>
           </div>
           <div class="phase">
             <span class="pid">Phase 1.3</span>
             <span>训练框架 —— checkpoint/resume 轨迹一致、failure injection、云端训 ~100M capstone</span>
-            <span class="status st-dim">未备课</span>
+            <span class="status st-red">26 tests · 红</span>
           </div>
         </div>
         <div class="mod">

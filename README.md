@@ -20,7 +20,8 @@
 | --- | --- |
 | 1.0 BPE Tokenizer | 备课完成，12 tests 红，闯关中 |
 | 1.1 Tensor & Autograd | 备课完成，49 tests 红 |
-| 1.2 Transformer / 1.3 Trainer | 未备课 |
+| 1.2 Qwen-like Transformer | 备课完成，35 tests 红 |
+| 1.3 训练框架 Trainer | 备课完成，26 tests 红 |
 
 ```bash
 cd m1-foundation
