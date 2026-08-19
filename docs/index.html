@@ -216,12 +216,14 @@
     <h1 class="serif">手搓一遍现代 LLM 的底层，<br>用测试定义「学会」。</h1>
     <p class="sub">一套自设计的 CS336 式个人能力 lab：Claude 出题（SPEC、骨架、测试关卡、参考答案），我手写核心实现闯关。从 BPE 分词器、Autograd、Transformer，一路到推理系统、后训练与 kernel。七个独立模块，十二周完成。</p>
     <div class="pytest" role="img" aria-label="pytest 输出：61 个测试全部失败，出题完成，等待闯关">
-      <div class="dim">$ python3 -m pytest tests/ -q</div>
-      <div class="bar"><span class="f">FFFFFFFFFFFF</span><span class="dim"> ← test_bpe.py (12)</span></div>
-      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← test_tensor.py (49)</span></div>
-      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← test_transformer.py (35)</span></div>
-      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← test_trainer.py (26)</span></div>
-      <div><span class="f">122 failed</span><span class="dim">, 0 passed —— M1 全部出题完成，等待闯关。红变绿的那一刻才算「会了」。</span></div>
+      <div class="dim">$ python3 -m pytest m*/tests -q</div>
+      <div class="bar"><span class="f">FFFFFFFFFFFF</span><span class="dim"> ← m1 test_bpe.py (12)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_tensor.py (49)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_transformer.py (35)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_trainer.py (26)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFF</span><span class="dim"> ← m3 test_moe.py (16)</span></div>
+      <div class="bar"><span class="dim">sssss ← m2 test_kernels.py（CUDA-only，租卡后解锁）</span></div>
+      <div><span class="f">138 failed</span><span class="dim">, 0 passed —— M1–M3 出题完成，等待闯关。红变绿的那一刻才算「会了」。</span></div>
     </div>
   </div>
 
@@ -301,13 +303,13 @@
         </div>
         <div class="mod">
           <span class="id">M2</span>
-          <span class="name">Kernel 与硬件<span class="desc">Triton 手写 fused RMSNorm / SwiGLU / Softmax，roofline 分析</span></span>
-          <span class="lights"><i class="lt"></i></span>
+          <span class="name">Kernel 与硬件<span class="desc">Triton 手写 fused RMSNorm / SwiGLU / CrossEntropy —— 题已出（测试需真卡，首次租卡先跑 validate_reference.sh）</span></span>
+          <span class="lights"><i class="lt red"></i></span>
         </div>
         <div class="mod">
           <span class="id">M3</span>
-          <span class="name">架构机制研究<span class="desc">MoE / MLA / aux-loss-free balancing 的等算力公平消融</span></span>
-          <span class="lights"><i class="lt"></i></span>
+          <span class="name">架构机制研究<span class="desc">MoE / MLA / aux-loss-free balancing / MTP，等算力公平消融 —— 16 tests 红</span></span>
+          <span class="lights"><i class="lt red"></i></span>
         </div>
         <div class="mod">
           <span class="id">M4</span>

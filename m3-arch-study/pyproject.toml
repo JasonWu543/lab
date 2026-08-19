@@ -1,0 +1,18 @@
+[project]
+name = "minimoe"
+version = "0.1.0"
+description = "M3 Phase 3.0: MoE / DeepSeek-V3 mechanism study"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "torch",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]

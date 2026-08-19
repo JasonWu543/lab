@@ -1,0 +1,23 @@
+[project]
+name = "kernels"
+version = "0.1.0"
+description = "M2 Phase 2.0: Triton fused kernel 三件套 (RMSNorm / SwiGLU / CrossEntropy)"
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+]
+
+[project.optional-dependencies]
+# triton 只在 Linux + CUDA 环境下安装；Mac / CPU 机器跳过
+cuda = [
+    "triton",   # pip install triton  （需要 NVIDIA 驱动 + CUDA toolkit）
+]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "cuda: marks tests that require a CUDA GPU (skip on CPU/Mac with -m 'not cuda')",
+]

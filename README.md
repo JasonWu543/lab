@@ -22,6 +22,8 @@
 | 1.1 Tensor & Autograd | 备课完成，49 tests 红 |
 | 1.2 Qwen-like Transformer | 备课完成，35 tests 红 |
 | 1.3 训练框架 Trainer | 备课完成，26 tests 红 |
+| 2.0 Triton kernel 三件套 | 备课完成（⚠️ 未真卡验证：首次租卡先跑 `m2-kernels/scripts/validate_reference.sh`）|
+| 3.0 MoE / DeepSeek 机制 | 备课完成，16 tests 红 |
 
 ```bash
 cd m1-foundation
