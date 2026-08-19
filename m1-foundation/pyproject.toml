@@ -1,0 +1,20 @@
+[project]
+name = "minilm"
+version = "0.1.0"
+description = "M1 foundation: BPE tokenizer, minimal autograd, Qwen-like transformer, trainer"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "regex",  # GPT-2 预分词 pattern 需要 \p{L} 等 unicode 属性类
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "torch",            # 数值对齐测试的参考实现
+    "tokenizers",       # T3/B1: HF BPE 参考对齐与吞吐对比
+    "huggingface_hub",  # 数据集下载
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

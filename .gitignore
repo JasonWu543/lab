@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.egg-info/
+# 实验产物：数据与权重不进 git
+data/
+checkpoints/
+wandb/
+*.bin
+*.safetensors

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Systems Lab — 手搓 LLM Infra 的 12 周闯关</title>
+<meta name="description" content="一套 CS336 式的个人能力 lab：从 BPE、Autograd、Transformer 到推理系统与后训练，测试先行，闯关制推进。">
+<style>
+  :root {
+    --paper: #fdfdfb;
+    --ink: #1c1c19;
+    --muted: #71716a;
+    --rule: #e6e6df;
+    --pass: #1a7f37;
+    --fail: #c8321e;
+    --pending: #c9c9c0;
+    --code-bg: #f4f4ef;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+  }
+  .serif { font-family: "Songti SC", "Noto Serif SC", "SimSun", serif; }
+  .mono { font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace; }
+  a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--rule); }
+  a:hover { border-bottom-color: var(--ink); }
+  a:focus-visible { outline: 2px solid var(--pass); outline-offset: 2px; border-radius: 1px; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---- top bar ---- */
+  header.top {
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 0;
+  }
+  header.top .wrap {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; color: var(--muted);
+  }
+  header.top .repo b { color: var(--ink); font-weight: 600; }
+
+  /* ---- hero ---- */
+  .hero { padding: 72px 0 48px; }
+  .hero h1 {
+    font-family: "Songti SC", "Noto Serif SC", serif;
+    font-size: clamp(30px, 5.4vw, 46px);
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+  }
+  .hero .sub {
+    margin-top: 18px;
+    max-width: 620px;
+    color: var(--muted);
+    font-size: 16.5px;
+  }
+  .pytest {
+    margin-top: 36px;
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 18px 20px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13.5px;
+    line-height: 1.9;
+    overflow-x: auto;
+  }
+  .pytest .dim { color: var(--muted); }
+  .pytest .f { color: var(--fail); font-weight: 600; }
+  .pytest .p { color: var(--pass); font-weight: 600; }
+  .pytest .bar { letter-spacing: 1px; word-break: break-all; }
+
+  /* ---- sections ---- */
+  section { padding: 52px 0; border-top: 1px solid var(--rule); }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px; letter-spacing: 0.12em;
+    color: var(--muted); text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  h2 {
+    font-family: "Songti SC", "Noto Serif SC", serif;
+    font-size: 27px; font-weight: 700; margin-bottom: 22px;
+  }
+  h3 { font-size: 17px; font-weight: 600; margin: 26px 0 8px; }
+  p + p { margin-top: 12px; }
+  .muted { color: var(--muted); }
+
+  /* ---- loop diagram ---- */
+  .loop {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin: 20px 0 6px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+  }
+  .loop .step {
+    border: 1px solid var(--rule); border-radius: 4px;
+    padding: 5px 11px; background: #fff;
+  }
+  .loop .step.red { border-color: #eecfc8; color: var(--fail); }
+  .loop .step.green { border-color: #cde3d2; color: var(--pass); }
+  .loop .arr { color: var(--pending); }
+
+  .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 22px; }
+  .role { border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; background: #fff; }
+  .role .who { font-weight: 600; margin-bottom: 6px; }
+  .role ul { list-style: none; }
+  .role li { padding-left: 16px; position: relative; font-size: 14.5px; color: #3a3a35; }
+  .role li::before { content: "·"; position: absolute; left: 2px; color: var(--muted); }
+  .iron {
+    margin-top: 22px; padding: 14px 18px;
+    border-left: 3px solid var(--ink);
+    background: var(--code-bg); font-size: 14.5px;
+  }
+
+  /* ---- gate board (signature) ---- */
+  .board { display: flex; flex-direction: column; gap: 0; }
+  .mod {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 16px; align-items: baseline;
+    padding: 16px 0;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .mod:last-child { border-bottom: none; }
+  .mod .id {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 14px; font-weight: 600;
+  }
+  .mod .name { font-size: 15.5px; }
+  .mod .name .desc { color: var(--muted); font-size: 13.5px; display: block; }
+  .lights { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .lt {
+    width: 13px; height: 13px; border-radius: 3px;
+    border: 1px solid var(--pending); background: transparent;
+  }
+  .lt.red { background: var(--fail); border-color: var(--fail); }
+  .lt.green { background: var(--pass); border-color: var(--pass); }
+  .legend {
+    display: flex; gap: 22px; margin: 6px 0 24px;
+    font-size: 13px; color: var(--muted); flex-wrap: wrap;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+
+  /* phases inside M1 */
+  .phases { margin-top: 4px; }
+  .phase {
+    display: grid; grid-template-columns: 96px 1fr auto; gap: 14px;
+    align-items: baseline; padding: 10px 0 10px 56px;
+    font-size: 14.5px; border-bottom: 1px dotted var(--rule);
+  }
+  .phase:last-child { border-bottom: none; }
+  .phase .pid { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; color: var(--muted); }
+  .phase .status { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; }
+  .st-red { color: var(--fail); }
+  .st-green { color: var(--pass); }
+  .st-dim { color: var(--pending); }
+
+  /* ---- schedule table ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
+  th, td { text-align: left; padding: 9px 12px 9px 0; vertical-align: top; }
+  th {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px; font-weight: 500; color: var(--muted);
+    letter-spacing: 0.08em; border-bottom: 1px solid var(--ink);
+  }
+  td { border-bottom: 1px solid var(--rule); }
+  td.wk { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; white-space: nowrap; }
+  td.gate { color: var(--muted); font-size: 13.5px; }
+
+  /* ---- readings ---- */
+  .reading { padding: 10px 0; border-bottom: 1px dotted var(--rule); font-size: 14.5px; }
+  .reading:last-child { border-bottom: none; }
+  .reading .star { color: var(--fail); margin-right: 6px; }
+  .reading .tag {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11.5px; color: var(--muted); margin-left: 8px;
+  }
+  .reading .why { display: block; color: var(--muted); font-size: 13px; }
+
+  /* ---- footer ---- */
+  footer {
+    border-top: 1px solid var(--rule);
+    padding: 30px 0 48px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; color: var(--muted);
+  }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+
+  @media (max-width: 640px) {
+    .roles { grid-template-columns: 1fr; }
+    .mod { grid-template-columns: 44px 1fr; }
+    .mod .lights { grid-column: 1 / -1; justify-content: flex-start; padding-top: 4px; }
+    .phase { grid-template-columns: 1fr; padding-left: 44px; gap: 2px; }
+    .hero { padding: 48px 0 36px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <span class="repo"><b>wujiexi / lab</b> · AI Systems Lab</span>
+    <a href="https://github.com/JasonWu543/lab">GitHub ↗</a>
+  </div>
+</header>
+
+<main>
+  <div class="hero wrap">
+    <h1 class="serif">手搓一遍现代 LLM 的底层，<br>用测试定义「学会」。</h1>
+    <p class="sub">一套自设计的 CS336 式个人能力 lab：Claude 出题（SPEC、骨架、测试关卡、参考答案），我手写核心实现闯关。从 BPE 分词器、Autograd、Transformer，一路到推理系统、后训练与 kernel。七个独立模块，十二周完成。</p>
+    <div class="pytest" role="img" aria-label="pytest 输出：61 个测试全部失败，出题完成，等待闯关">
+      <div class="dim">$ python3 -m pytest tests/ -q</div>
+      <div class="bar"><span class="f">FFFFFFFFFFFF</span><span class="dim"> ← test_bpe.py (12)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← test_tensor.py (49)</span></div>
+      <div><span class="f">61 failed</span><span class="dim">, 0 passed —— 出题完成，等待闯关。红变绿的那一刻才算「会了」。</span></div>
+    </div>
+  </div>
+
+  <section id="method">
+    <div class="wrap">
+      <div class="eyebrow">Method</div>
+      <h2 class="serif">工作方式：测试先行的闯关制</h2>
+      <p>每个单元的「完成」不由感觉定义，由测试定义。接口先在 SPEC 里冻结，测试先于实现存在（此时全红），然后手写实现直到全绿：</p>
+      <div class="loop" aria-label="闯关循环">
+        <span class="step">SPEC 冻结接口</span><span class="arr">→</span>
+        <span class="step red">测试全红</span><span class="arr">→</span>
+        <span class="step">手写实现</span><span class="arr">→</span>
+        <span class="step green">测试全绿</span><span class="arr">→</span>
+        <span class="step">Review</span><span class="arr">→</span>
+        <span class="step">Postmortem</span>
+      </div>
+      <div class="roles">
+        <div class="role">
+          <div class="who">Claude —— 出题人 + 助教</div>
+          <ul>
+            <li>写 SPEC、带 TODO 的骨架代码</li>
+            <li>写测试关卡与 benchmark 脚手架</li>
+            <li>藏参考答案于 reference/（卡 30 分钟才许看）</li>
+            <li>提交后 review、注 bug 出演练题</li>
+          </ul>
+        </div>
+        <div class="role">
+          <div class="who">我 —— 实现者</div>
+          <ul>
+            <li>手写全部核心算法代码</li>
+            <li>跑 pytest 闯关直到全绿</li>
+            <li>对照参考答案说出自己版本差在哪</li>
+            <li>写 postmortem：错误、返工、学到什么</li>
+          </ul>
+        </div>
+      </div>
+      <div class="iron">铁律：出题人绝不替学生写核心实现——即使学生说「效率优先，你来写」。答案只进 reference/，答题文件必须留白。</div>
+    </div>
+  </section>
+
+  <section id="modules">
+    <div class="wrap">
+      <div class="eyebrow">Modules</div>
+      <h2 class="serif">七个独立模块</h2>
+      <div class="legend">
+        <span><i class="lt red" style="display:inline-block"></i> 题已出（测试红）</span>
+        <span><i class="lt green" style="display:inline-block"></i> 已通关（测试绿）</span>
+        <span><i class="lt" style="display:inline-block"></i> 未备课</span>
+      </div>
+      <div class="board">
+        <div class="mod">
+          <span class="id">M1</span>
+          <span class="name">模型基础<span class="desc">BPE → Autograd → Qwen-like Transformer → 训练框架，手搓浓度最高的模块</span></span>
+          <span class="lights"><i class="lt red"></i><i class="lt red"></i><i class="lt"></i><i class="lt"></i></span>
+        </div>
+        <div class="phases">
+          <div class="phase">
+            <span class="pid">Phase 1.0</span>
+            <span>BPE Tokenizer —— GPT-2 regex 预分词、naive → 增量 → 多进程三版提速、TinyStories 8k vocab</span>
+            <span class="status st-red">12 tests · 红</span>
+          </div>
+          <div class="phase">
+            <span class="pid">Phase 1.1</span>
+            <span>最小 Tensor 与 Autograd —— 拓扑排序 backward、broadcast 梯度归约、手推 matmul 反向</span>
+            <span class="status st-red">49 tests · 红</span>
+          </div>
+          <div class="phase">
+            <span class="pid">Phase 1.2</span>
+            <span>Qwen-like Transformer —— RoPE、GQA、KV cache 对齐、官方权重映射验证</span>
+            <span class="status st-dim">未备课</span>
+          </div>
+          <div class="phase">
+            <span class="pid">Phase 1.3</span>
+            <span>训练框架 —— checkpoint/resume 轨迹一致、failure injection、云端训 ~100M capstone</span>
+            <span class="status st-dim">未备课</span>
+          </div>
+        </div>
+        <div class="mod">
+          <span class="id">M2</span>
+          <span class="name">Kernel 与硬件<span class="desc">Triton 手写 fused RMSNorm / SwiGLU / Softmax，roofline 分析</span></span>
+          <span class="lights"><i class="lt"></i></span>
+        </div>
+        <div class="mod">
+          <span class="id">M3</span>
+          <span class="name">架构机制研究<span class="desc">MoE / MLA / aux-loss-free balancing 的等算力公平消融</span></span>
+          <span class="lights"><i class="lt"></i></span>
+        </div>
+        <div class="mod">
+          <span class="id">M4</span>
+          <span class="name">推理系统<span class="desc">naive → mini-vLLM：continuous batching、paged KV cache、投机解码</span></span>
+          <span class="lights"><i class="lt"></i><i class="lt"></i></span>
+        </div>
+        <div class="mod">
+          <span class="id">M5</span>
+          <span class="name">后训练<span class="desc">SFT → DPO → GRPO 完整闭环，loss mask 对照实验、reward hacking 检查</span></span>
+          <span class="lights"><i class="lt"></i><i class="lt"></i><i class="lt"></i></span>
+        </div>
+        <div class="mod">
+          <span class="id">M6</span>
+          <span class="name">数据与 Scaling<span class="desc">去重 / 污染检测 / 数据消融；scaling law 拟合与外推验证</span></span>
+          <span class="lights"><i class="lt"></i></span>
+        </div>
+        <div class="mod">
+          <span class="id">M7</span>
+          <span class="name">Agent 软件工程<span class="desc">PR 闭环、四 Agent 并发开发、Review 训练——贯穿全部模块的演练场</span></span>
+          <span class="lights"><i class="lt"></i><i class="lt"></i><i class="lt"></i></span>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:18px; font-size:14px">模块之间零代码依赖，只通过标准产物衔接（HF 格式 checkpoint、tokenized 数据、benchmark JSON）。完整拆解见 <a href="https://github.com/JasonWu543/lab/blob/main/LAB_DESIGN.md">LAB_DESIGN.md</a>，M1 逐单元验收见 <a href="https://github.com/JasonWu543/lab/blob/main/m1-foundation/PLAN.md">m1-foundation/PLAN.md</a>。</p>
+    </div>
+  </section>
+
+  <section id="schedule">
+    <div class="wrap">
+      <div class="eyebrow">Schedule</div>
+      <h2 class="serif">十二周路线</h2>
+      <p class="muted" style="font-size:14.5px">每周 15–25 小时；同一时间最多两条活跃线。出口标志是硬门槛：不达标砍下周副线来补，不顺延总工期。</p>
+      <table>
+        <thead><tr><th>周</th><th>主线</th><th>出口标志</th></tr></thead>
+        <tbody>
+          <tr><td class="wk">W1</td><td>M1: BPE → 最小 Autograd（副线 M7 演练 PR 闭环）</td><td class="gate">round-trip + gradcheck 通过，第一个完整 PR</td></tr>
+          <tr><td class="wk">W2–3</td><td>M1: Qwen-like Transformer</td><td class="gate">过拟合 + cached/non-cached logits 对齐</td></tr>
+          <tr><td class="wk">W4</td><td>M1: Trainer + 云端训 50–100M</td><td class="gate">中断恢复演示 + checkpoint 产出</td></tr>
+          <tr><td class="wk">W5–6</td><td>M4: mini-vLLM（副线 M7 四 Agent 并发开发）</td><td class="gate">continuous batching 跑通 + vLLM 对比报告</td></tr>
+          <tr><td class="wk">W7</td><td>M4: 投机解码（副线 M2 fused kernels）</td><td class="gate">采样分布一致性检验通过</td></tr>
+          <tr><td class="wk">W8–9</td><td>M3: MoE / DeepSeek 机制消融</td><td class="gate">MoE vs Dense 等算力结论</td></tr>
+          <tr><td class="wk">W10–11</td><td>M5: SFT → DPO → GRPO（副线 M6 数据工程）</td><td class="gate">reward 上升且无 hacking</td></tr>
+          <tr><td class="wk">W12</td><td>缓冲 + 总结</td><td class="gate">全部 postmortem 汇总成总结报告</td></tr>
+        </tbody>
+      </table>
+      <p class="muted" style="margin-top:14px; font-size:13.5px">算力策略：本地 Mac 写代码跑单测，云端租单卡 4090/5090 只跑正式实验，每个实验事先标注 S（≤2 GPU·h）/ M（≤12）/ L（≤48）级别。</p>
+    </div>
+  </section>
+
+  <section id="readings">
+    <div class="wrap">
+      <div class="eyebrow">Readings</div>
+      <h2 class="serif">读什么</h2>
+      <p class="muted" style="font-size:14.5px">每个模块配约五篇文献，动手前只精读打 ★ 的一两篇，其余遇到问题再查——不用读论文推迟写代码。当前阶段（M1）的必读：</p>
+      <div style="margin-top:14px">
+        <div class="reading"><span class="star">★</span><a href="https://arxiv.org/abs/1508.07909">Neural Machine Translation of Rare Words with Subword Units</a><span class="tag">Sennrich 2016 · paper</span><span class="why">BPE 用于 NLP 的原论文，Phase 1.0 的算法基础。</span></div>
+        <div class="reading"><span class="star">★</span><a href="https://github.com/karpathy/minbpe">karpathy/minbpe</a><span class="tag">repo</span><span class="why">200 行 Python 从零实现 BPE，工程细节最清晰的教学实现。</span></div>
+        <div class="reading"><span class="star">★</span><a href="https://arxiv.org/abs/1502.05767">Automatic Differentiation in ML: a Survey</a><span class="tag">Baydin, JMLR 2018 · paper</span><span class="why">自动微分最权威综述，reverse mode 的数学本质。</span></div>
+        <div class="reading"><span class="star">★</span><a href="https://github.com/karpathy/micrograd">karpathy/micrograd</a><span class="tag">repo</span><span class="why">150 行标量级 autograd，理解「backward 为什么保存前向激活」最直观。</span></div>
+        <div class="reading"><span class="star">★</span><a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a><span class="tag">Vaswani 2017 · paper</span><span class="why">Phase 1.2 的起点。</span></div>
+      </div>
+      <p class="muted" style="margin-top:14px; font-size:14px">全部七个模块的清单见 <a href="https://github.com/JasonWu543/lab/blob/main/READINGS.md">READINGS.md</a>。</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>AI Systems Lab · 2026-08 起 · 12 周</span>
+    <span><a href="https://github.com/JasonWu543/lab">github.com/JasonWu543/lab</a> · <a href="https://jasonwu543.github.io">个人主页</a></span>
+  </div>
+</footer>
+
+</body>
+</html>
