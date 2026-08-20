@@ -222,8 +222,13 @@
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_transformer.py (35)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_trainer.py (26)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFF</span><span class="dim"> ← m3 test_moe.py (16)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m4 test_minivllm.py (20)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFF</span><span class="dim"> ← m4 test_speculative.py (16)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_sft.py (43)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_dpo.py (26)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_grpo.py (29)</span></div>
       <div class="bar"><span class="dim">sssss ← m2 test_kernels.py（CUDA-only，租卡后解锁）</span></div>
-      <div><span class="f">138 failed</span><span class="dim">, 0 passed —— M1–M3 出题完成，等待闯关。红变绿的那一刻才算「会了」。</span></div>
+      <div><span class="f">272 failed</span><span class="dim">, 0 passed —— M1–M5 出题完成，等待闯关。红变绿的那一刻才算「会了」。</span></div>
     </div>
   </div>
 
@@ -313,13 +318,13 @@
         </div>
         <div class="mod">
           <span class="id">M4</span>
-          <span class="name">推理系统<span class="desc">naive → mini-vLLM：continuous batching、paged KV cache、投机解码</span></span>
-          <span class="lights"><i class="lt"></i><i class="lt"></i></span>
+          <span class="name">推理系统<span class="desc">mini-vLLM（continuous batching / paged KV / prefix cache）+ 投机解码 —— 36 tests 红</span></span>
+          <span class="lights"><i class="lt red"></i><i class="lt red"></i></span>
         </div>
         <div class="mod">
           <span class="id">M5</span>
-          <span class="name">后训练<span class="desc">SFT → DPO → GRPO 完整闭环，loss mask 对照实验、reward hacking 检查</span></span>
-          <span class="lights"><i class="lt"></i><i class="lt"></i><i class="lt"></i></span>
+          <span class="name">后训练<span class="desc">SFT（loss mask/packing/LoRA）→ DPO → GRPO，共 98 tests 红</span></span>
+          <span class="lights"><i class="lt red"></i><i class="lt red"></i><i class="lt red"></i></span>
         </div>
         <div class="mod">
           <span class="id">M6</span>

@@ -24,6 +24,9 @@
 | 1.3 训练框架 Trainer | 备课完成，26 tests 红 |
 | 2.0 Triton kernel 三件套 | 备课完成（⚠️ 未真卡验证：首次租卡先跑 `m2-kernels/scripts/validate_reference.sh`）|
 | 3.0 MoE / DeepSeek 机制 | 备课完成，16 tests 红 |
+| 4.0 mini-vLLM | 备课完成，20 tests 红 |
+| 4.1 投机解码 | 备课完成，16 tests 红 |
+| 5.0 SFT / 5.1 DPO / 5.2 GRPO | 备课完成，43+26+29 tests 红（真实模型/数据见 `m5-post-training/docs/RESOURCES.md`）|
 
 ```bash
 cd m1-foundation

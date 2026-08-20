@@ -1,0 +1,15 @@
+[project]
+name = "minipost"
+version = "0.1.0"
+description = "M5: 后训练 lab（SFT / DPO / GRPO；基座用官方 transformers）"
+requires-python = ">=3.10"
+dependencies = ["torch", "transformers"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["minisft", "minidpo", "minigrpo"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
