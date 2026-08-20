@@ -22,13 +22,16 @@
 | 1.1 Tensor & Autograd | 备课完成，51 tests 红 |
 | 1.2 Qwen-like Transformer | 备课完成，38 tests 红 |
 | 1.3 训练框架 Trainer | 备课完成，26 tests 红 |
-| 2.0 Triton kernel 三件套 | 备课完成（本机无 CUDA 时模块级 1 skipped；⚠️ 未真卡验证，首次租卡先跑 `m2-kernels/scripts/validate_reference.sh`）|
+| 2.0 Triton 三件套 / 2.1 进阶 / 2.2 Grouped GEMM | 备课完成（本机无 CUDA 时 3 skipped；⚠️ 均未真卡验证，首次租卡先跑 `m2-kernels/scripts/validate_reference.sh`）|
 | 3.0 MoE / DeepSeek 机制 | 备课完成，16 tests 红 |
+| 3.1 DSv4 机制（sparse attn / Hyper-Connections / Muon）| 备课完成，9 tests 红 |
+| 3.2 长上下文（Delta rule / 状态压缩）| 备课完成，16 tests 红 |
 | 4.0 mini-vLLM | 备课完成，23 tests 红 |
 | 4.1 投机解码 | 备课完成，17 tests 红 |
+| 4.2 PD 分离模拟 | 备课完成，9 tests 红 |
 | 5.0 SFT / 5.1 DPO / 5.2 GRPO | 备课完成，43+26+29 tests 红（真实模型/数据见 `m5-post-training/docs/RESOURCES.md`）|
 | 6.0 数据工程 / 6.1 Scaling law | 备课完成，37+24 tests 红 |
-| 7.2 Review 演练 | 材料就绪：18 个已知问题的假 PR，教具自测 41 passed（限时 45 分钟，见 `m7-agent-engineering/exercises/7.2-review/`）|
+| 7.2 / 7.2b / 7.2c Review 演练 | 材料就绪：三个埋雷假 PR（18/17/17 个已知问题，各限时 45 分钟），教具自测 41+16 passed（见 `m7-agent-engineering/exercises/`）|
 
 ```bash
 cd m1-foundation

@@ -215,21 +215,24 @@
   <div class="hero wrap">
     <h1 class="serif">手搓一遍现代 LLM 的底层，<br>用测试定义「学会」。</h1>
     <p class="sub">一套自设计的 CS336 式个人能力 lab：Claude 出题（SPEC、骨架、测试关卡、参考答案），我手写核心实现闯关。从 BPE 分词器、Autograd、Transformer，一路到推理系统、后训练与 kernel。七个独立模块，十二周完成。</p>
-    <div class="pytest" role="img" aria-label="pytest 输出：343 个学生验收项处于红灯，CUDA 模块 1 项跳过，出题完成，等待闯关">
+    <div class="pytest" role="img" aria-label="pytest 输出：377 个学生验收项处于红灯，CUDA 模块 3 项跳过，出题完成，等待闯关">
       <div class="dim">$ python3 -m pytest m*/tests -q</div>
       <div class="bar"><span class="f">FFFFFFFFFFFFF</span><span class="dim"> ← m1 test_bpe.py (13)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_tensor.py (51)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_transformer.py (38)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_trainer.py (26)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFF</span><span class="dim"> ← m3 test_moe.py (16)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFF</span><span class="dim"> ← m3 test_dsv4.py (9)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFF</span><span class="dim"> ← m3 test_longctx.py (16)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m4 test_minivllm.py (23)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFF</span><span class="dim"> ← m4 test_speculative.py (17)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFF</span><span class="dim"> ← m4 test_pd.py (9)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_sft.py (43)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_dpo.py (26)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_grpo.py (29)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m6 test_data.py + test_scaling.py (61)</span></div>
-      <div class="bar"><span class="dim">s ← m2 test_kernels.py（CUDA-only，本机模块级 1 skipped）</span></div>
-      <div><span class="f">343 red</span><span class="dim">, 1 skipped —— M1/M3–M6 学生验收项等待闯关；M7 的 41 passed 是故意保持通过的 Review 教具，不计入全红总数。</span></div>
+      <div class="bar"><span class="dim">sss ← m2 test_kernels{,_21,_22}.py（CUDA-only，本机模块级 3 skipped）</span></div>
+      <div><span class="f">377 red</span><span class="dim">, 3 skipped —— M1/M3–M6 学生验收项等待闯关；M7 的 41+16 passed 是故意保持通过的 Review 教具，不计入全红总数。</span></div>
     </div>
   </div>
 
@@ -309,18 +312,18 @@
         </div>
         <div class="mod">
           <span class="id">M2</span>
-          <span class="name">Kernel 与硬件<span class="desc">Triton 手写 fused RMSNorm / SwiGLU / CrossEntropy —— 题已出（测试需真卡，首次租卡先跑 validate_reference.sh）</span></span>
-          <span class="lights"><i class="lt red"></i></span>
+          <span class="name">Kernel 与硬件<span class="desc">2.0 fused RMSNorm / SwiGLU / CrossEntropy；2.1 RoPE + blockwise attention；2.2 Grouped GEMM —— 题已出（测试需真卡，首次租卡先跑 validate_reference.sh）</span></span>
+          <span class="lights"><i class="lt red"></i><i class="lt red"></i><i class="lt red"></i></span>
         </div>
         <div class="mod">
           <span class="id">M3</span>
-          <span class="name">架构机制研究<span class="desc">MoE / MLA / aux-loss-free balancing / MTP，等算力公平消融 —— 16 tests 红</span></span>
-          <span class="lights"><i class="lt red"></i></span>
+          <span class="name">架构机制研究<span class="desc">MoE / MLA / MTP；DSv4 机制（sparse attn / Hyper-Connections / Muon）；长上下文 Delta rule —— 16+9+16 tests 红</span></span>
+          <span class="lights"><i class="lt red"></i><i class="lt red"></i><i class="lt red"></i></span>
         </div>
         <div class="mod">
           <span class="id">M4</span>
-          <span class="name">推理系统<span class="desc">mini-vLLM（continuous batching / paged KV / prefix cache）+ 投机解码 —— 40 tests 红</span></span>
-          <span class="lights"><i class="lt red"></i><i class="lt red"></i></span>
+          <span class="name">推理系统<span class="desc">mini-vLLM（continuous batching / paged KV / prefix cache）+ 投机解码 + PD 分离模拟 —— 49 tests 红</span></span>
+          <span class="lights"><i class="lt red"></i><i class="lt red"></i><i class="lt red"></i></span>
         </div>
         <div class="mod">
           <span class="id">M5</span>
@@ -334,8 +337,8 @@
         </div>
         <div class="mod">
           <span class="id">M7</span>
-          <span class="name">Agent 软件工程<span class="desc">PR 闭环 / 并发开发（挂靠 M1/M4 执行）；7.2 Review 演练：18 个已知问题的假 PR，教具自测 41 passed</span></span>
-          <span class="lights"><i class="lt red"></i></span>
+          <span class="name">Agent 软件工程<span class="desc">PR 闭环 / 并发开发（挂靠 M1/M4 执行）；Review 演练 ×3：采样/KV、训练循环、数据管线三个埋雷假 PR（18/17/17 个已知问题）</span></span>
+          <span class="lights"><i class="lt red"></i><i class="lt red"></i><i class="lt red"></i></span>
         </div>
       </div>
       <p class="muted" style="margin-top:18px; font-size:14px">模块之间零代码依赖，只通过标准产物衔接（HF 格式 checkpoint、tokenized 数据、benchmark JSON）。完整拆解见 <a href="https://github.com/JasonWu543/lab/blob/main/LAB_DESIGN.md">LAB_DESIGN.md</a>，M1 逐单元验收见 <a href="https://github.com/JasonWu543/lab/blob/main/m1-foundation/PLAN.md">m1-foundation/PLAN.md</a>。</p>

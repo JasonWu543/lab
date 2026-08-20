@@ -20,9 +20,36 @@ cd "$ROOT"
 
 KERNELS="$ROOT/kernels"
 REF="$ROOT/reference/2.0-kernels"
+REF21="$ROOT/reference/2.1-advanced"
+REF22="$ROOT/reference/2.2-grouped-gemm"
 BACKUP="$ROOT/.backup_skeletons"
+RESTORE_ARMED=0
+BACKUP_CREATED=0
 
-echo "=== Phase 2.0 参考答案验证脚本 ==="
+restore_skeletons() {
+    if [ "$RESTORE_ARMED" -ne 1 ]; then
+        if [ "$BACKUP_CREATED" -eq 1 ]; then
+            rm -rf "$BACKUP"
+            BACKUP_CREATED=0
+        fi
+        return
+    fi
+    # EXIT trap 中即使某一条恢复命令失败，也继续尝试恢复其余骨架。
+    set +e
+    cp "$BACKUP/rmsnorm.py"       "$KERNELS/rmsnorm.py"
+    cp "$BACKUP/swiglu.py"        "$KERNELS/swiglu.py"
+    cp "$BACKUP/cross_entropy.py" "$KERNELS/cross_entropy.py"
+    cp "$BACKUP/rope.py"          "$KERNELS/rope.py"
+    cp "$BACKUP/block_attn.py"    "$KERNELS/block_attn.py"
+    cp "$BACKUP/grouped_gemm.py"  "$KERNELS/grouped_gemm.py"
+    rm -rf "$BACKUP"
+    RESTORE_ARMED=0
+    BACKUP_CREATED=0
+}
+
+trap restore_skeletons EXIT
+
+echo "=== M2 参考答案验证脚本（2.0 / 2.1 / 2.2）==="
 echo "工作目录：$ROOT"
 echo
 
@@ -39,10 +66,16 @@ fi
 
 # ─── 备份骨架 ─────────────────────────────────────────────────────────────────
 echo "[1/4] 备份学生骨架..."
+rm -rf "$BACKUP"
 mkdir -p "$BACKUP"
+BACKUP_CREATED=1
 cp "$KERNELS/rmsnorm.py"      "$BACKUP/rmsnorm.py"
 cp "$KERNELS/swiglu.py"       "$BACKUP/swiglu.py"
 cp "$KERNELS/cross_entropy.py" "$BACKUP/cross_entropy.py"
+cp "$KERNELS/rope.py"          "$BACKUP/rope.py"
+cp "$KERNELS/block_attn.py"    "$BACKUP/block_attn.py"
+cp "$KERNELS/grouped_gemm.py"  "$BACKUP/grouped_gemm.py"
+RESTORE_ARMED=1
 echo "      备份至 $BACKUP/"
 
 # ─── 覆盖参考答案 ─────────────────────────────────────────────────────────────
@@ -50,6 +83,9 @@ echo "[2/4] 覆盖参考答案..."
 cp "$REF/rmsnorm_solution.py"      "$KERNELS/rmsnorm.py"
 cp "$REF/swiglu_solution.py"       "$KERNELS/swiglu.py"
 cp "$REF/cross_entropy_solution.py" "$KERNELS/cross_entropy.py"
+cp "$REF21/rope_solution.py"         "$KERNELS/rope.py"
+cp "$REF21/block_attn_solution.py"   "$KERNELS/block_attn.py"
+cp "$REF22/grouped_gemm_solution.py" "$KERNELS/grouped_gemm.py"
 echo "      参考答案已就位。"
 
 # ─── 运行测试 ─────────────────────────────────────────────────────────────────
@@ -58,23 +94,20 @@ echo
 
 # 用 || 捕获失败退出码，最后恢复骨架再报告
 TEST_RESULT=0
-python3 -m pytest tests/test_kernels.py -v --tb=short 2>&1 || TEST_RESULT=$?
+python3 -m pytest tests/test_kernels.py tests/test_kernels_21.py tests/test_kernels_22.py -v --tb=short 2>&1 || TEST_RESULT=$?
 
 echo
 
 # ─── 恢复骨架 ─────────────────────────────────────────────────────────────────
 echo "[4/4] 恢复学生骨架..."
-cp "$BACKUP/rmsnorm.py"       "$KERNELS/rmsnorm.py"
-cp "$BACKUP/swiglu.py"        "$KERNELS/swiglu.py"
-cp "$BACKUP/cross_entropy.py" "$KERNELS/cross_entropy.py"
-rm -rf "$BACKUP"
+restore_skeletons
 echo "      骨架已恢复，可以开始闯关。"
 echo
 
 # ─── 报告结果 ─────────────────────────────────────────────────────────────────
 if [ "$TEST_RESULT" -eq 0 ]; then
     echo "✅  全部测试通过！出题包质量 OK。"
-    echo "    现在可以开始实现 kernels/{rmsnorm,swiglu,cross_entropy}.py 了。"
+    echo "    现在可以开始实现 2.0、2.1 与 2.2 的 kernel 了。"
     echo "    运行测试：cd m2-kernels && python3 -m pytest tests/test_kernels.py -x -q"
 else
     echo "❌  部分测试失败（退出码 $TEST_RESULT）。"
