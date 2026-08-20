@@ -227,8 +227,9 @@
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_sft.py (43)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_dpo.py (26)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_grpo.py (29)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m6 test_data.py + test_scaling.py (58)</span></div>
       <div class="bar"><span class="dim">sssss ← m2 test_kernels.py（CUDA-only，租卡后解锁）</span></div>
-      <div><span class="f">272 failed</span><span class="dim">, 0 passed —— M1–M5 出题完成，等待闯关。红变绿的那一刻才算「会了」。</span></div>
+      <div><span class="f">330 failed</span><span class="dim">, 0 passed —— 全部七个模块出题完成，等待闯关。红变绿的那一刻才算「会了」。</span></div>
     </div>
   </div>
 
@@ -328,13 +329,13 @@
         </div>
         <div class="mod">
           <span class="id">M6</span>
-          <span class="name">数据与 Scaling<span class="desc">去重 / 污染检测 / 数据消融；scaling law 拟合与外推验证</span></span>
-          <span class="lights"><i class="lt"></i></span>
+          <span class="name">数据与 Scaling<span class="desc">Gopher 过滤 / MinHash 去重 / 污染检测；scaling law 拟合与 compute-optimal 外推 —— 58 tests 红</span></span>
+          <span class="lights"><i class="lt red"></i><i class="lt red"></i></span>
         </div>
         <div class="mod">
           <span class="id">M7</span>
-          <span class="name">Agent 软件工程<span class="desc">PR 闭环、四 Agent 并发开发、Review 训练——贯穿全部模块的演练场</span></span>
-          <span class="lights"><i class="lt"></i><i class="lt"></i><i class="lt"></i></span>
+          <span class="name">Agent 软件工程<span class="desc">PR 闭环 / 并发开发（挂靠 M1/M4 执行）；7.2 Review 演练：18 个已知问题的假 PR，限时 45 分钟</span></span>
+          <span class="lights"><i class="lt red"></i></span>
         </div>
       </div>
       <p class="muted" style="margin-top:18px; font-size:14px">模块之间零代码依赖，只通过标准产物衔接（HF 格式 checkpoint、tokenized 数据、benchmark JSON）。完整拆解见 <a href="https://github.com/JasonWu543/lab/blob/main/LAB_DESIGN.md">LAB_DESIGN.md</a>，M1 逐单元验收见 <a href="https://github.com/JasonWu543/lab/blob/main/m1-foundation/PLAN.md">m1-foundation/PLAN.md</a>。</p>

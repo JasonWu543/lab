@@ -1,0 +1,15 @@
+[project]
+name = "minidata-scaling"
+version = "0.1.0"
+description = "M6: 数据工程与 scaling law lab"
+requires-python = ">=3.10"
+dependencies = ["numpy", "scipy"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["minidata", "minilaw"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

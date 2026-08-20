@@ -27,6 +27,8 @@
 | 4.0 mini-vLLM | 备课完成，20 tests 红 |
 | 4.1 投机解码 | 备课完成，16 tests 红 |
 | 5.0 SFT / 5.1 DPO / 5.2 GRPO | 备课完成，43+26+29 tests 红（真实模型/数据见 `m5-post-training/docs/RESOURCES.md`）|
+| 6.0 数据工程 / 6.1 Scaling law | 备课完成，35+23 tests 红 |
+| 7.2 Review 演练 | 材料就绪：18 个已知问题的假 PR（限时 45 分钟，见 `m7-agent-engineering/exercises/7.2-review/`）|
 
 ```bash
 cd m1-foundation
