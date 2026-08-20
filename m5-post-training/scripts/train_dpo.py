@@ -62,6 +62,7 @@ def build_model(seed: int = 42):
         num_attention_heads=4,
         num_key_value_heads=2,
         max_position_embeddings=256,
+        pad_token_id=258,
         attn_implementation="eager",
     )
     return Qwen2ForCausalLM(cfg)

@@ -64,7 +64,7 @@ def fused_cross_entropy(logits: Tensor, targets: Tensor,
 | T1 | rmsnorm fwd/bwd 与 torch 参考实现对齐：fp32 rtol 1e-5 / bf16 rtol 2e-2；shape 覆盖 (B,T,H) 与 (N,H)，H ∈ {512, 768, 1000(非2幂), 4096} |
 | T2 | swiglu_mul fwd/bwd 对齐（同上容差与 shape 策略）|
 | T3 | fused_cross_entropy 与 F.cross_entropy 对齐：loss fp32 atol 1e-5；dlogits 对齐；含 ignore_index 用例 |
-| T4 | 显存：V=32k、N=4096 时 fused CE 的峰值显存 < torch 版的 60%（torch.cuda.max_memory_allocated 对比）|
+| T4 | 显存：V=32k、N=4096 时 fused CE 的增量峰值显存 < torch 版的 60%（输入分配后记录基线，以 `torch.cuda.max_memory_allocated - baseline` 对比，并在两轮间释放 autograd 图）|
 | T5 | 数值稳定：logits 含 ±1e4 极值时 loss 有限且与 fp64 参考一致（rtol 1e-3）|
 
 benchmark（`benchmarks/bench_kernels.py`，不进测试）：warmup 后测

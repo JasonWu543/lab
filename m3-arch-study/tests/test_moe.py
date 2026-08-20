@@ -147,7 +147,8 @@ def test_t3_bias_update_converges():
         router.update_bias(idx)
     idx, _ = router(x)
     load = torch.bincount(idx.flatten(), minlength=cfg.n_routed_experts).float()
-    load = load[load > 0]
+    # 不能丢掉零负载 expert；否则“全部 token 塌缩到一个 expert”会得到伪造的 1.0 比值。
+    assert (load > 0).all(), f"仍有零负载 expert: {load.tolist()}"
     assert (load.max() / load.min()) < 2
 
 
@@ -225,6 +226,11 @@ def test_t5_memory_below_40pct_mha():
     cache = MLACache(cfg, B, cfg.max_seq_len, torch.device("cpu"), torch.float32)
     cache.update(torch.randn(B, S, cfg.kv_lora_rank), torch.randn(B, S, cfg.qk_rope_head_dim))
     mha = mha_cache_bytes(cfg, B, S, torch.float32)
+    # 独立对拍 oracle：K/V 的 head dim 已在括号内相加，不应再乘 2。
+    expected_mha = B * S * cfg.num_heads * (
+        cfg.qk_nope_head_dim + cfg.qk_rope_head_dim + cfg.v_head_dim
+    ) * 4
+    assert mha == expected_mha
     assert cache.memory_bytes() < 0.4 * mha
 
 

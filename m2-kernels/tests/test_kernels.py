@@ -9,6 +9,8 @@ Phase 2.0: Triton kernel 三件套 测试套件 (T1–T5)
     python3 -m pytest tests/test_kernels.py -q
     → 所有测试 SKIP（collection 不报错）
 """
+import gc
+
 import pytest
 import torch
 import torch.nn.functional as F
@@ -121,6 +123,28 @@ class TestRMSNorm:
             msg="dw 与参考不一致",
         )
 
+    def test_noncontiguous_weight(self):
+        """W_ptr 是元素指针：wrapper 必须先处理带 stride 的 weight view。"""
+        N, H = 8, 768
+        x_tri = torch.randn(N, H, device="cuda", requires_grad=True)
+        w_storage_tri = torch.randn(2 * H, device="cuda", requires_grad=True)
+        w_tri = w_storage_tri[::2]
+        x_ref = x_tri.detach().clone().requires_grad_(True)
+        w_storage_ref = w_storage_tri.detach().clone().requires_grad_(True)
+        w_ref = w_storage_ref[::2]
+        assert not w_tri.is_contiguous()
+
+        dy = torch.randn_like(x_tri)
+        y_tri = rmsnorm(x_tri, w_tri)
+        y_ref = _ref_rmsnorm(x_ref, w_ref)
+        torch.testing.assert_close(y_tri, y_ref, rtol=1e-5, atol=0)
+        y_tri.backward(dy)
+        y_ref.backward(dy)
+        torch.testing.assert_close(x_tri.grad, x_ref.grad, rtol=1e-5, atol=0)
+        torch.testing.assert_close(
+            w_storage_tri.grad, w_storage_ref.grad, rtol=1e-5, atol=0,
+        )
+
 
 # 外部可调用的简短名称（与 SPEC 一致）
 def test_rmsnorm():
@@ -183,6 +207,12 @@ class TestSwiGLU:
             u_tri.grad.float(), u_ref.grad.float(), rtol=rtol, atol=0, msg="d_up 不一致",
         )
 
+    def test_shape_mismatch_rejected(self):
+        gate = torch.randn(2, 8, device="cuda")
+        up = torch.randn(2, 7, device="cuda")
+        with pytest.raises(AssertionError, match="形状必须相同"):
+            swiglu_mul(gate, up)
+
 
 def test_swiglu():
     """T2 入口。"""
@@ -198,31 +228,34 @@ def test_swiglu():
 
 # ─── T3: fused_cross_entropy 数值对齐 ────────────────────────────────────────
 
-@pytest.mark.parametrize("N,V,ignore_index,dtype", [
-    (128,  1024, -100, torch.float32),
-    (256,  4096, -100, torch.float32),
-    (64,   1024,   0,  torch.float32),   # ignore_index = 0
-    (128,  1024, -100, torch.bfloat16),  # bf16 logits
+@pytest.mark.parametrize("N,V,ignore_index,dtype,loss_atol,grad_atol", [
+    (128,  1024, -100, torch.float32,  1e-5, 1e-5),
+    (256,  4096, -100, torch.float32,  1e-5, 1e-5),
+    (64,   1024,    0, torch.float32,  1e-5, 1e-5),
+    (128,  1024, -100, torch.bfloat16, 1e-5, 2e-4),
 ])
-def test_cross_entropy(N, V, ignore_index, dtype):
+def test_cross_entropy(N, V, ignore_index, dtype, loss_atol, grad_atol):
     """T3：loss 与 dlogits 均与 F.cross_entropy 对齐；含 ignore_index 用例。"""
     logits = torch.randn(N, V, dtype=dtype, device="cuda")
     targets = torch.randint(0, V, (N,), device="cuda")
 
-    # 设置部分 ignore 行
-    if ignore_index != -100:
-        # 约 20% 的行设为 ignore_index
-        mask = torch.rand(N, device="cuda") < 0.2
-        targets[mask] = ignore_index
+    # 每种 ignore_index（包括默认 -100）都实际覆盖约 20% 的忽略行。
+    mask = torch.rand(N, device="cuda") < 0.2
+    targets[mask] = ignore_index
 
     # --- loss 对比 ---
-    logits_tri = logits.clone().float().requires_grad_(True)
-    logits_ref = logits.clone().float().requires_grad_(True)
+    # Triton 路径保留参数化 dtype；fp32 oracle 从同一份（可能已量化的）
+    # 输入构造，避免 bf16 用例在调用被测实现之前被悄悄升级为 fp32。
+    logits_tri = logits.clone().requires_grad_(True)
+    logits_ref = logits.float().requires_grad_(True)
 
     loss_tri = fused_cross_entropy(logits_tri, targets, ignore_index=ignore_index)
     loss_ref = F.cross_entropy(logits_ref, targets, ignore_index=ignore_index)
 
-    torch.testing.assert_close(loss_tri, loss_ref, atol=1e-5, rtol=0, msg="loss 不一致")
+    assert loss_tri.dtype == torch.float32, "fused CE loss 必须以 fp32 返回"
+    torch.testing.assert_close(
+        loss_tri, loss_ref, atol=loss_atol, rtol=0, msg="loss 不一致",
+    )
 
     # --- dlogits 对比 ---
     loss_tri.backward()
@@ -230,37 +263,63 @@ def test_cross_entropy(N, V, ignore_index, dtype):
 
     assert logits_tri.grad is not None
     torch.testing.assert_close(
-        logits_tri.grad, logits_ref.grad, atol=1e-5, rtol=0, msg="dlogits 不一致",
+        logits_tri.grad.float(), logits_ref.grad, atol=grad_atol, rtol=0,
+        msg="dlogits 不一致",
     )
+
+
+def test_cross_entropy_all_ignored():
+    """mean reduction 全忽略时：与 PyTorch 一样 loss=NaN、梯度全零。"""
+    N, V = 8, 1024
+    logits_tri = torch.randn(N, V, device="cuda", requires_grad=True)
+    logits_ref = logits_tri.detach().clone().requires_grad_(True)
+    targets = torch.full((N,), -100, device="cuda", dtype=torch.long)
+
+    loss_tri = fused_cross_entropy(logits_tri, targets)
+    loss_ref = F.cross_entropy(logits_ref, targets)
+    assert torch.isnan(loss_tri) and torch.isnan(loss_ref)
+
+    loss_tri.backward()
+    loss_ref.backward()
+    torch.testing.assert_close(logits_tri.grad, logits_ref.grad, atol=0, rtol=0)
 
 
 # ─── T4: 显存占用 < torch 版的 60% ───────────────────────────────────────────
 
 def test_memory_fused_ce():
-    """T4：V=32k、N=4096 时 fused CE 峰值显存 < torch 版的 60%。"""
+    """T4：V=32k、N=4096 时 fused CE 增量峰值显存 < torch 版的 60%。"""
     N, V = 4096, 32768
-    logits_base = torch.randn(N, V, device="cuda", dtype=torch.float32)
-    targets = torch.randint(0, V, (N,), device="cuda")
 
-    # 测量 torch 版显存
-    torch.cuda.reset_peak_memory_stats()
-    logits_ref = logits_base.clone().requires_grad_(True)
-    loss_ref = F.cross_entropy(logits_ref, targets)
-    loss_ref.backward()
-    mem_torch = torch.cuda.max_memory_allocated()
+    def measure_incremental_peak(fn):
+        # 输入是两种实现共同的必要常驻量，先分配再记录基线；每轮结束显式
+        # 释放整张 autograd 图，防止上一轮的 logits/grad 污染下一轮峰值。
+        logits = torch.randn(N, V, device="cuda", dtype=torch.float32,
+                             requires_grad=True)
+        targets = torch.randint(0, V, (N,), device="cuda")
+        torch.cuda.synchronize()
+        baseline = torch.cuda.memory_allocated()
+        torch.cuda.reset_peak_memory_stats()
 
-    torch.cuda.empty_cache()
+        loss = fn(logits, targets)
+        loss.backward()
+        torch.cuda.synchronize()
+        peak_delta = torch.cuda.max_memory_allocated() - baseline
 
-    # 测量 fused 版显存
-    torch.cuda.reset_peak_memory_stats()
-    logits_tri = logits_base.clone().requires_grad_(True)
-    loss_tri = fused_cross_entropy(logits_tri, targets)
-    loss_tri.backward()
-    mem_fused = torch.cuda.max_memory_allocated()
+        del loss, logits, targets
+        gc.collect()
+        torch.cuda.empty_cache()
+        return peak_delta
+
+    mem_torch = measure_incremental_peak(
+        lambda logits, targets: F.cross_entropy(logits, targets),
+    )
+    mem_fused = measure_incremental_peak(
+        lambda logits, targets: fused_cross_entropy(logits, targets),
+    )
 
     ratio = mem_fused / mem_torch
     assert ratio < 0.60, (
-        f"fused CE 显存占用 = {mem_fused/1e6:.1f} MB，"
+        f"fused CE 增量峰值 = {mem_fused/1e6:.1f} MB，"
         f"torch = {mem_torch/1e6:.1f} MB，"
         f"比例 = {ratio:.2%}（需 < 60%）"
     )

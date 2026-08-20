@@ -43,7 +43,7 @@ def fit_scaling_law(N: np.ndarray, D: np.ndarray, L: np.ndarray,
     """Chinchilla Approach 3 风格：
     在 log 空间参数化（拟合 log A、log B、log E 保证正性），
     目标 = Huber(delta=1e-3) on (log L_pred − log L_obs)，
-    多起点（对 α,β ∈ [0,2.5]、logA/logB 网格随机）取最优。
+    多起点（对 α,β ∈ [0.01,2.5]、logA/logB 网格随机）取最优。
     确定性：同 seed 同输入必须同输出。"""
 
 # minilaw/optimal.py

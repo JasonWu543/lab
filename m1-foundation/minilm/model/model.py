@@ -30,9 +30,8 @@ def precompute_rope(
     预计算 RoPE 的 cos/sin 查找表。
 
     提示：
-      - inv_freq shape: (head_dim // 2,)，公式：1 / (theta^(2i/head_dim))
-        —— 每一对维度一个旋转频率（读 RoFormer §3.2.2 或 EleutherAI 博客）
-      - freqs = 每个位置 × 每个频率，shape (max_seq_len, head_dim//2)
+      - 每对维度需要一个频率；从 RoFormer §3.2.2 推导频率随维度的变化
+      - 位置和频率怎样组合，才能得到 (max_seq_len, head_dim//2) 的相位表？
       - 最终 cos/sin 的 shape 是 (max_seq_len, head_dim)：
         从 head_dim//2 到 head_dim 怎么排布，取决于 rotate_half 布局
         （前后对半，与 HF Qwen2 一致）——先想清楚 rotate_half 再回来写这里
@@ -68,10 +67,8 @@ def apply_rope(
     cos, sin:  (max_seq_len, head_dim)
     positions: (T,) 或 (B, T)
 
-    步骤：
-      1. 用 positions 从 cos/sin 表中取出对应行
-      2. 按 positions 的维度决定是否需要 unsqueeze（广播到 q/k 的维度）
-      3. q_rot = q * cos_pos + rotate_half(q) * sin_pos，k 同理
+    提示：先索引对应位置的 cos/sin，再检查 (T,) 与 (B,T) 两种 positions
+    怎样广播到 q/k；旋转表达式请由 rotate_half 的二维几何意义推导。
 
     返回: (q_rot, k_rot)
     """
@@ -104,7 +101,7 @@ class RMSNorm(nn.Module):
         RMS LayerNorm：x / rms(x) * weight
         提示：
           - 先转 float32 计算，避免数值溢出
-          - rms = (x^2.mean(-1, keepdim=True) + eps).rsqrt()
+          - 思考平方均值、eps、开方/倒数的次序，以及归约维度
           - 返回前转回原始 dtype
         """
         raise NotImplementedError

@@ -87,6 +87,7 @@ class SwiGLUFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, gate: Tensor, up: Tensor) -> Tensor:
+        assert gate.shape == up.shape, "gate 和 up 形状必须相同"
         gate_c = gate.contiguous()
         up_c   = up.contiguous()
         out = torch.empty_like(gate_c)

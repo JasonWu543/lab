@@ -34,7 +34,11 @@ def convert_qwen_config(qwen_config: dict) -> ModelConfig:
     raise NotImplementedError
 
 
-def load_qwen(weight_dir: Union[str, Path]) -> MiniLM:
+def load_qwen(
+    weight_dir: Union[str, Path],
+    device="cpu",
+    dtype=torch.float32,
+) -> MiniLM:
     """
     从 Qwen2.5 权重目录加载并返回 MiniLM 模型。
 

@@ -112,7 +112,7 @@ dataloader/日志/配置 boilerplate 交 Agent）。
 
 | 单元 | 内容 | 验收测试 |
 | --- | --- | --- |
-| U3.1 数据管线 | tokenized 语料的 memmap 存储、sequence packing、causal masking、DataLoader | packing 前后每 token loss 对齐；打乱可复现（seed 固定）|
+| U3.1 数据管线 | tokenized 语料的 memmap 存储、PackedDataset、DataLoader | memmap 写读 roundtrip；`(x,y)` 右移和边界样本数正确；打乱可复现（seed 固定）|
 | U3.2 训练循环 | BF16 autocast、grad accumulation、clipping、cosine scheduler + warmup、wandb/本地日志 | grad accum N 步 == 大 batch 单步（数值容差内）；lr 曲线快照测试 |
 | U3.3 checkpoint/resume | model/optimizer/scheduler/RNG/step 全量保存；原子写入 | **中断-恢复后 loss 轨迹与不中断基线逐步一致**（本 phase 最重要的测试）|
 | U3.4 failure injection | 中途 kill、checkpoint 写一半、数据 NaN、loss spike、optimizer state 丢失 | 每个场景：能检测 → 能报告 → 能恢复或干净失败；写成自动化测试而非手工演示 |
@@ -124,7 +124,7 @@ dataloader/日志/配置 boilerplate 交 Agent）。
 
 ## 进度表（过关打勾）
 
-- [ ] 1.0 BPE：U0.1 / U0.2 / U0.3 + postmortem
+- [ ] 1.0 BPE：U0.1 / U0.2 / U0.3 / U0.4 + postmortem
 - [ ] 1.1 Tensor：U1.1 / U1.2 / U1.3 / U1.4 + postmortem
 - [ ] 1.2 Transformer：U2.1 / U2.2 / U2.3 / U2.4 / U2.5 / U2.6 + postmortem
 - [ ] 1.3 Trainer：U3.1 / U3.2 / U3.3 / U3.4 / U3.5 + postmortem

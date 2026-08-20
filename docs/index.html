@@ -215,21 +215,21 @@
   <div class="hero wrap">
     <h1 class="serif">手搓一遍现代 LLM 的底层，<br>用测试定义「学会」。</h1>
     <p class="sub">一套自设计的 CS336 式个人能力 lab：Claude 出题（SPEC、骨架、测试关卡、参考答案），我手写核心实现闯关。从 BPE 分词器、Autograd、Transformer，一路到推理系统、后训练与 kernel。七个独立模块，十二周完成。</p>
-    <div class="pytest" role="img" aria-label="pytest 输出：61 个测试全部失败，出题完成，等待闯关">
+    <div class="pytest" role="img" aria-label="pytest 输出：343 个学生验收项处于红灯，CUDA 模块 1 项跳过，出题完成，等待闯关">
       <div class="dim">$ python3 -m pytest m*/tests -q</div>
-      <div class="bar"><span class="f">FFFFFFFFFFFF</span><span class="dim"> ← m1 test_bpe.py (12)</span></div>
-      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_tensor.py (49)</span></div>
-      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_transformer.py (35)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFF</span><span class="dim"> ← m1 test_bpe.py (13)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_tensor.py (51)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_transformer.py (38)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m1 test_trainer.py (26)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFF</span><span class="dim"> ← m3 test_moe.py (16)</span></div>
-      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m4 test_minivllm.py (20)</span></div>
-      <div class="bar"><span class="f">FFFFFFFFFFFFFFFF</span><span class="dim"> ← m4 test_speculative.py (16)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m4 test_minivllm.py (23)</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFF</span><span class="dim"> ← m4 test_speculative.py (17)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_sft.py (43)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_dpo.py (26)</span></div>
       <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m5 test_grpo.py (29)</span></div>
-      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m6 test_data.py + test_scaling.py (58)</span></div>
-      <div class="bar"><span class="dim">sssss ← m2 test_kernels.py（CUDA-only，租卡后解锁）</span></div>
-      <div><span class="f">330 failed</span><span class="dim">, 0 passed —— 全部七个模块出题完成，等待闯关。红变绿的那一刻才算「会了」。</span></div>
+      <div class="bar"><span class="f">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</span><span class="dim"> ← m6 test_data.py + test_scaling.py (61)</span></div>
+      <div class="bar"><span class="dim">s ← m2 test_kernels.py（CUDA-only，本机模块级 1 skipped）</span></div>
+      <div><span class="f">343 red</span><span class="dim">, 1 skipped —— M1/M3–M6 学生验收项等待闯关；M7 的 41 passed 是故意保持通过的 Review 教具，不计入全红总数。</span></div>
     </div>
   </div>
 
@@ -289,17 +289,17 @@
           <div class="phase">
             <span class="pid">Phase 1.0</span>
             <span>BPE Tokenizer —— GPT-2 regex 预分词、naive → 增量 → 多进程三版提速、TinyStories 8k vocab</span>
-            <span class="status st-red">12 tests · 红</span>
+            <span class="status st-red">13 tests · 红</span>
           </div>
           <div class="phase">
             <span class="pid">Phase 1.1</span>
             <span>最小 Tensor 与 Autograd —— 拓扑排序 backward、broadcast 梯度归约、手推 matmul 反向</span>
-            <span class="status st-red">49 tests · 红</span>
+            <span class="status st-red">51 tests · 红</span>
           </div>
           <div class="phase">
             <span class="pid">Phase 1.2</span>
             <span>Qwen-like Transformer —— RoPE、GQA、KV cache 对齐、官方 Qwen2.5-0.5B 权重映射验证</span>
-            <span class="status st-red">35 tests · 红</span>
+            <span class="status st-red">38 tests · 红</span>
           </div>
           <div class="phase">
             <span class="pid">Phase 1.3</span>
@@ -319,7 +319,7 @@
         </div>
         <div class="mod">
           <span class="id">M4</span>
-          <span class="name">推理系统<span class="desc">mini-vLLM（continuous batching / paged KV / prefix cache）+ 投机解码 —— 36 tests 红</span></span>
+          <span class="name">推理系统<span class="desc">mini-vLLM（continuous batching / paged KV / prefix cache）+ 投机解码 —— 40 tests 红</span></span>
           <span class="lights"><i class="lt red"></i><i class="lt red"></i></span>
         </div>
         <div class="mod">
@@ -329,12 +329,12 @@
         </div>
         <div class="mod">
           <span class="id">M6</span>
-          <span class="name">数据与 Scaling<span class="desc">Gopher 过滤 / MinHash 去重 / 污染检测；scaling law 拟合与 compute-optimal 外推 —— 58 tests 红</span></span>
+          <span class="name">数据与 Scaling<span class="desc">Gopher 过滤 / MinHash 去重 / 污染检测；scaling law 拟合与 compute-optimal 外推 —— 61 tests 红</span></span>
           <span class="lights"><i class="lt red"></i><i class="lt red"></i></span>
         </div>
         <div class="mod">
           <span class="id">M7</span>
-          <span class="name">Agent 软件工程<span class="desc">PR 闭环 / 并发开发（挂靠 M1/M4 执行）；7.2 Review 演练：18 个已知问题的假 PR，限时 45 分钟</span></span>
+          <span class="name">Agent 软件工程<span class="desc">PR 闭环 / 并发开发（挂靠 M1/M4 执行）；7.2 Review 演练：18 个已知问题的假 PR，教具自测 41 passed</span></span>
           <span class="lights"><i class="lt red"></i></span>
         </div>
       </div>

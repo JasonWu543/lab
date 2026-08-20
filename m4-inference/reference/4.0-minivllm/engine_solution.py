@@ -78,13 +78,14 @@ class Engine:
             prefill_tokens = self._run_prefill(prefill_seqs)
             for seq, tok in zip(prefill_seqs, prefill_tokens):
                 seq.output_ids.append(tok)
-                self.block_manager.append_slot(seq)
                 seq._first_token_step = self._step_count
                 if seq.output_ids[-1] == self._eos_token_id() or \
                         len(seq.output_ids) >= seq.request.max_new_tokens:
                     self.scheduler.finish(seq)
                     seq._finish_step = self._step_count
                     finished.append(seq)
+                else:
+                    self.block_manager.append_slot(seq)
 
         # ── decode 前向 ──────────────────────────────────────────────────
         # 过滤掉刚 prefill 完并 finish 的（若某 seq prefill 时恰好结束）
@@ -93,12 +94,13 @@ class Engine:
             decode_tokens = self._run_decode(active_decode)
             for seq, tok in zip(active_decode, decode_tokens):
                 seq.output_ids.append(tok)
-                self.block_manager.append_slot(seq)
                 if tok == self._eos_token_id() or \
                         len(seq.output_ids) >= seq.request.max_new_tokens:
                     self.scheduler.finish(seq)
                     seq._finish_step = self._step_count
                     finished.append(seq)
+                else:
+                    self.block_manager.append_slot(seq)
 
         self._step_count += 1
 
@@ -147,7 +149,7 @@ class Engine:
     def _prefill_one(self, seq: Sequence) -> int:
         """单条 prefill：带 prefix cache 的前向。"""
         prompt_ids = seq.request.prompt_ids
-        cached_len = seq.num_cached_tokens  # prefix cache 命中数
+        cached_len = _cached_kv_len(seq)  # 完整命中时保留最后一个 token 重算
 
         input_ids = torch.tensor(
             [prompt_ids[cached_len:]], dtype=torch.long

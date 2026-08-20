@@ -110,8 +110,8 @@ Tokenizer、RMSNorm、RoPE、GQA、SwiGLU、causal attention、KV cache、
 weight tying、训练/生成/checkpoint。
 
 - 规模：correctness 用 10–30M；正式 50–150M，BF16，seq 512–2048。
-- 验收：32 样本稳定过拟合；中断恢复轨迹一致；
-  cached/non-cached decoding logits 对齐；
+- 验收：32 样本稳定过拟合；cached/non-cached decoding logits 对齐；
+  参数量闭式计数、官方 Qwen 权重映射后 logits 对齐；
   给出参数量/FLOPs/MFU/显存的手算估算并与实测对比。
 - 附加：加载转换后的官方 Qwen 小模型权重，验证模块映射正确。
 - 算力：S 级 + 一次 M 级正式训练。
@@ -384,5 +384,5 @@ Agent3 sampler / Agent4 benchmark+测试。
 ## 10. 下一步
 
 1. 确认本文档（可迭代修订，版本号递增）。
-2. 建立 `m1-foundation/` 仓库骨架 + 第一份 SPEC（Phase 1.0 Tensor）。
+2. 建立 `m1-foundation/` 仓库骨架 + 第一份 SPEC（Phase 1.0 BPE Tokenizer）。
 3. 同步启动 M7 Phase 7.0：Phase 1.0 本身就用完整 PR 闭环来做。

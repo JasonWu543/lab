@@ -122,7 +122,7 @@ class FusedCrossEntropyFunction(torch.autograd.Function):
         )
 
         valid_mask = targets_c != ignore_index
-        N_valid = valid_mask.sum().clamp(min=1)
+        N_valid = valid_mask.sum()
         loss = loss_per_row.sum() / N_valid
 
         ctx.save_for_backward(logits_c, targets_c, logsumexp)
@@ -135,7 +135,10 @@ class FusedCrossEntropyFunction(torch.autograd.Function):
         logits, targets, logsumexp = ctx.saved_tensors
         N, V = logits.shape
         dlogits = torch.empty_like(logits)
-        grad_scale = grad_output.item() / ctx.N_valid.item()
+        n_valid = ctx.N_valid.item()
+        # Match torch.nn.functional.cross_entropy for an all-ignored batch:
+        # the mean loss is NaN (0 / 0), but every input gradient is zero.
+        grad_scale = 0.0 if n_valid == 0 else grad_output.item() / n_valid
 
         grid = (N,)
         _ce_bwd_kernel[grid](

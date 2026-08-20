@@ -42,6 +42,8 @@ def generate(model: MiniLM, input_ids: torch.Tensor, max_new_tokens: int, temper
     """
     model.eval()
     result = input_ids.clone()
+    if max_new_tokens <= 0:
+        return result
 
     with torch.no_grad():
         if use_cache:

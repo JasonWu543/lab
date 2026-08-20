@@ -452,6 +452,26 @@ class TestT5Dedup:
             assert earlier in kept_set
             assert later not in kept_set
 
+    def test_t5_distinct_short_docs_are_not_duplicates(self):
+        """空 MinHash 签名是哨兵；不同的短文档不能因此被判成 Jaccard=1。"""
+        docs = ["alpha", "beta", "one two", "red blue"]
+        kept, dup_pairs = dedup(docs, threshold=0.8, num_perm=128, bands=32, k=3)
+        assert kept == [0, 1, 2, 3]
+        assert dup_pairs == []
+
+    def test_t5_transitive_cluster_keeps_earliest(self):
+        """相似关系形成链时，重复簇仍只能保留最早的成员。"""
+        a = {f"w{i}" for i in range(100)}
+        b = (a - {f"w{i}" for i in range(10)}) | {f"x{i}" for i in range(10)}
+        c = (b - {f"w{i}" for i in range(10, 20)}) | {f"y{i}" for i in range(10)}
+        docs = [" ".join(sorted(words)) for words in (a, b, c)]
+
+        kept, dup_pairs = dedup(
+            docs, threshold=0.8, num_perm=1024, bands=256, k=1
+        )
+        assert kept == [0]
+        assert dup_pairs == [(0, 1), (1, 2)]
+
 
 # ─────────────────────── T6 污染检测 ─────────────────────────────
 

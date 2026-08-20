@@ -82,7 +82,7 @@ class TestT1PredictLoss:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# T2 — 参数回收：已知参数生成数据，拟合后 α/β 误差 < 0.05、E 误差 < 0.1
+# T2 — 参数回收：已知参数生成数据，拟合后 α/β 误差 < 0.05、E 误差 < 0.2
 # ════════════════════════════════════════════════════════════════════════════
 class TestT2ParamRecovery:
     @pytest.fixture(scope="class")
@@ -267,6 +267,16 @@ class TestT6IsoflopMinima:
     def test_empty_runs(self):
         """空输入直接返回空列表，不崩溃。"""
         assert isoflop_minima([]) == []
+
+    def test_monotone_group_uses_observed_endpoint(self):
+        """近线性曲率的数值噪声不得把谷底外推到 inf。"""
+        runs = [
+            {"C": 1e18, "N": 1e6, "L": 2.2},
+            {"C": 1e18, "N": 1e7, "L": 2.1},
+            {"C": 1e18, "N": 1e8, "L": 2.0},
+        ]
+        result = isoflop_minima(runs)
+        assert result == [{"C": 1e18, "N_opt": pytest.approx(1e8), "L_min": 2.0}]
 
 
 # ════════════════════════════════════════════════════════════════════════════

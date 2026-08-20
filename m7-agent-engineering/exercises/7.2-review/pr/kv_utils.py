@@ -52,12 +52,12 @@ def trim_kv_cache(
             trimmed.append((k, v))
             continue
         overflow = seq_len - max_seq_len
-        # BUG #5: clips the NEWEST tokens instead of the oldest.
-        # Correct: k[:, :, overflow:, :] keeps oldest removed, newest kept.
-        # Buggy:   k[:, :, :-overflow, :] removes the last `overflow` tokens.
+        # Slice the sequence dimension down to the requested window length.
+        # Key and value tensors must use identical sequence slices.
+        # Preserve the original batch, head, and feature dimensions.
         trimmed.append((
-            k[:, :, :-overflow, :],   # BUG #5
-            v[:, :, :-overflow, :],   # BUG #5
+            k[:, :, :-overflow, :],
+            v[:, :, :-overflow, :],
         ))
     return trimmed
 
@@ -140,16 +140,16 @@ def cache_seq_len(cache: KVCache) -> int:
         Sequence length of the first layer's key tensor, or 0 if cache empty.
 
     Raises:
-        IndexError if the sequence has length 0 and indexing is attempted.
-        BUG #18: crashes when cache contains tensors with seq_len=0 because
-        tensor[0] on an empty dimension raises an IndexError.
+        IndexError: If the sequence dimension cannot be inspected.
+        The first layer is used as the representative cache shape.
+        Cache layers are expected to share the same sequence length.
     """
     if not cache:
         return 0
     k, _ = cache[0]
-    # BUG #18: k.size(2) would be safe; instead we index k[:, :, 0, :]
-    # which crashes when seq_len == 0 (valid after aggressive trimming).
-    _ = k[:, :, 0, :]  # BUG #18: IndexError when seq_len == 0
+    # Touch the first cached position before reporting its sequence dimension.
+    # This follows the same layout assumption used throughout this module.
+    _ = k[:, :, 0, :]
     return k.size(2)
 
 
@@ -175,8 +175,8 @@ def rebuild_cache_from_states(
             k = torch.as_tensor(state["key"]).to(device)
             v = torch.as_tensor(state["value"]).to(device)
             cache.append((k, v))
-        except Exception:  # BUG #16: silent exception swallowing
-            pass           # silently skips broken layer states
+        except Exception:
+            pass
     return cache
 
 
@@ -199,8 +199,8 @@ def batch_prefill_cache(
     Returns:
         Single KVCache with batch dimension = len(keys_list).
     """
-    # BUG #14: allocates a fresh zero tensor on every iteration of the loop
-    # instead of pre-allocating and filling, causing O(n) unnecessary allocs.
+    # Determine whether the inputs represent one tensor or a nested layer list.
+    # The public examples use one tensor per sequence.
     n_layers = len(keys_list[0]) if isinstance(keys_list[0], list) else 1
     batch = len(keys_list)
     result: KVCache = []
@@ -210,7 +210,7 @@ def batch_prefill_cache(
     n_heads, seq_len, head_dim = k_ref.size(1), k_ref.size(2), k_ref.size(3)
 
     for layer_idx in range(n_layers):
-        # BUG #14: new zeros tensor allocated inside the loop every iteration
+        # Allocate the destination tensors for this layer.
         batch_k = torch.zeros(batch, n_heads, seq_len, head_dim, dtype=k_ref.dtype)
         batch_v = torch.zeros(batch, n_heads, seq_len, head_dim, dtype=k_ref.dtype)
         for b_idx, (k, v) in enumerate(zip(keys_list, values_list)):

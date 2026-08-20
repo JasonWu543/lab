@@ -24,13 +24,12 @@ import regex  # pip install regex  (supports \p{L} etc.)
 # GPT-2 pre-tokenisation pattern (unchanged from the original paper / tiktoken)
 # ---------------------------------------------------------------------------
 GPT2_PATTERN = regex.compile(
-    r"""'(?:[sdmt]|ll|ve|re)|"""      # contractions: 's 'd 'm 't 'll 've 're
-    r"""[^\r\n\p{L}\p{N}]?\p{L}+|"""  # optional leading non-letter/non-digit, then letters
-    r"""\p{N}{1,3}|"""                 # up to 3 digit run
-    r""" ?[^\s\p{L}\p{N}]+[\r\n]*|""" # punctuation / symbols (with optional trailing newlines)
-    r"""\s*[\r\n]+|"""                 # newlines / whitespace ending in newline
-    r"""\s+(?!\S)|"""                  # trailing whitespace (end of string)
-    r"""\s+"""                         # remaining whitespace
+    r"""'s|'t|'re|'ve|'m|'ll|'d|"""
+    r""" ?\p{L}+|"""
+    r""" ?\p{N}+|"""
+    r""" ?[^\s\p{L}\p{N}]+|"""
+    r"""\s+(?!\S)|"""
+    r"""\s+"""
 )
 
 # ---------------------------------------------------------------------------

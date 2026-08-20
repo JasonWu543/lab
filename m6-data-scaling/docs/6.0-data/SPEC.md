@@ -72,7 +72,9 @@ def dedup(docs: list[str], threshold: float = 0.8,
           seed: int = 42) -> tuple[list[int], list[tuple[int, int]]]:
     """返回 (保留的 doc 下标（保序，重复簇保留最早的）,
              判定为重复的 (早, 晚) 对列表)。
-    流程：签名 → LSH 候选 → 候选对用 jaccard_estimate 复核 ≥ threshold。"""
+    流程：签名 → LSH 候选 → 候选对用 jaccard_estimate 复核 ≥ threshold。
+    空 shingle 集合的全最大值签名仅是哨兵；这类文档之间没有可用于近重复
+    判定的 shingle，必须分别保留。"""
 
 # minidata/contamination.py
 def ngram_set(text: str, n: int = 8) -> set[str]:

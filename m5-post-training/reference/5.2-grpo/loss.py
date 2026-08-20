@@ -24,7 +24,9 @@ def grpo_loss(logps: Tensor,        # (B, T) 当前策略 per-token logp
 
     # k3 KL 估计（policy 对 ref）
     diff = ref_logps - logps                                   # (B, T)
-    k3 = torch.exp(diff) - diff - 1.0                          # (B, T) >= 0
+    # expm1(x) - x 与 exp(x) - x - 1 数学等价，但在 x≈0 时避免
+    # 两次相减造成的灾难性消去，从浮点上也保持 k3 非负。
+    k3 = torch.expm1(diff) - diff                              # (B, T) >= 0
 
     mask_f = mask.float()
     denom = mask_f.sum().clamp(min=1.0)

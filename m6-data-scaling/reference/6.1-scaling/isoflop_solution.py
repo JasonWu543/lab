@@ -40,13 +40,14 @@ def isoflop_minima(runs: list[dict]) -> list[dict]:
         coeffs = np.polyfit(log_N, L_vals, 2)  # [a, b, c_const]
         a_coef, b_coef, c_coef = coeffs
 
-        if a_coef <= 0:
-            # 开口向下，没有最小值——退化为端点最小
+        log_N_opt = -b_coef / (2.0 * a_coef) if a_coef > 0 else np.nan
+        if a_coef <= 0 or not (log_N.min() <= log_N_opt <= log_N.max()):
+            # 没有观测区间内的谷底：不做无依据外推，退化为实测点最小。
+            # 这也防止近线性数据因数值噪声得到极小正曲率和无穷大的 N_opt。
             idx = int(np.argmin(L_vals))
             N_opt = float(np.exp(log_N[idx]))
             L_min = float(L_vals[idx])
         else:
-            log_N_opt = -b_coef / (2.0 * a_coef)
             N_opt = float(np.exp(log_N_opt))
             L_min = float(np.polyval(coeffs, log_N_opt))
 

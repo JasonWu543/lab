@@ -122,6 +122,7 @@ class RMSNormFunction(torch.autograd.Function):
         shape_orig = x.shape
         H = shape_orig[-1]
         x_2d = x.contiguous().view(-1, H)
+        weight_c = weight.contiguous()
         N = x_2d.shape[0]
 
         y = torch.empty_like(x_2d)
@@ -129,13 +130,13 @@ class RMSNormFunction(torch.autograd.Function):
 
         grid = (N,)
         _rmsnorm_fwd_kernel[grid](
-            x_2d, weight, y, rstd,
+            x_2d, weight_c, y, rstd,
             x_2d.stride(0),
             H, eps,
             BLOCK_SIZE=BLOCK_SIZE,
         )
 
-        ctx.save_for_backward(x_2d, weight, rstd)
+        ctx.save_for_backward(x_2d, weight_c, rstd)
         ctx.H = H
         ctx.shape_orig = shape_orig
         return y.view(shape_orig)

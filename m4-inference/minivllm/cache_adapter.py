@@ -99,7 +99,10 @@ def _cached_kv_len(seq: Sequence) -> int:
     """seq 进入本步前已有的 KV token 数。"""
     if seq.status == SeqStatus.RUNNING and seq.output_ids:
         return seq.num_tokens() - 1
-    return seq.num_cached_tokens
+    # prefix cache 可能恰好命中整个 prompt，但 CausalLM 前向至少需要
+    # 1 个 input token 才能产生 next-token logits，因此最后一个 prompt token
+    # 必须留给本步重算。
+    return min(seq.num_cached_tokens, max(seq.num_tokens() - 1, 0))
 
 
 def _gather_seq_kv(

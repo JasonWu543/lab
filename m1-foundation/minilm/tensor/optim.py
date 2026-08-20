@@ -3,10 +3,8 @@
 实现 SGD（含可选 momentum）。
 
 提示：
-  - step() 遍历 params，对每个 requires_grad=True 的 Tensor：
-      param.data -= lr * param.grad
-  - momentum 版本：维护速度项 v，v = momentum * v + lr * param.grad，
-    然后 param.data -= v
+  - step() 应跳过没有梯度的参数；先从普通 SGD 的更新含义推导更新方向
+  - momentum 版本需要保存跨 step 的状态；思考速度如何组合历史与当前梯度
   - zero_grad() 调用每个 param 的 .zero_grad()
 
 运行测试：
@@ -37,8 +35,7 @@ class SGD:
           for p in self.params:
               if p.grad is None:
                   continue
-              # 普通 SGD：p.data -= self.lr * p.grad
-              # momentum SGD：v = momentum * v + lr * grad; p.data -= v
+              # 普通 SGD 与 momentum 的更新式请从课程材料推导
         """
         raise NotImplementedError
 

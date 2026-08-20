@@ -76,7 +76,8 @@ class Tensor:
 
     def __init__(self, data, requires_grad: bool = False):
         if isinstance(data, np.ndarray):
-            self.data = data.astype(np.float64)
+            # Preserve numpy view semantics when the input is already float64.
+            self.data = data.astype(np.float64, copy=False)
         else:
             self.data = np.array(data, dtype=np.float64)
         self.requires_grad = requires_grad
@@ -106,6 +107,8 @@ class Tensor:
     # ------ 图操作 ------
 
     def backward(self, grad: np.ndarray | None = None) -> None:
+        if not self.requires_grad:
+            raise RuntimeError("不能从 requires_grad=False 的 Tensor 发起 backward()")
         if grad is None:
             if self.data.shape == () or self.data.size == 1:
                 grad = np.ones_like(self.data)
@@ -113,8 +116,6 @@ class Tensor:
                 raise RuntimeError(
                     "非标量 Tensor 调用 backward() 必须传入 grad 参数（与 PyTorch 行为一致）"
                 )
-        self.grad = grad
-
         # 拓扑排序（后序 DFS）
         topo: list[Tensor] = []
         visited: set[int] = set()
@@ -128,6 +129,15 @@ class Tensor:
             topo.append(node)
 
         dfs(self)
+        # A second backward through the same graph must not reuse stale
+        # intermediate gradients.  Leaf gradients, however, accumulate.
+        for node in topo:
+            if node._parents:
+                node.grad = None
+        if self._parents:
+            self.grad = np.asarray(grad, dtype=np.float64)
+        else:
+            self._accum_grad(np.asarray(grad, dtype=np.float64))
         # 从输出节点向输入节点传播
         for node in reversed(topo):
             node._backward()

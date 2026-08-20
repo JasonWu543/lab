@@ -368,6 +368,16 @@ class TestT5GradAccum:
         assert allclose(ma2.grad, 2 * grad_once), \
             "两次 backward（不 zero_grad）应使梯度翻倍"
 
+    def test_repeated_backward_on_same_graph_doubles_leaf_grad(self):
+        """Stale intermediate grads must not turn a second backward into 3x."""
+        a_np = rand(3)
+        ma = Tensor(a_np.copy(), requires_grad=True)
+        r = (ma * ma + ma).sum()
+        r.backward()
+        grad_once = ma.grad.copy()
+        r.backward()
+        assert allclose(ma.grad, 2 * grad_once)
+
     def test_zero_grad_clears(self):
         a_np = rand(3)
         ma = Tensor(a_np.copy(), requires_grad=True)
@@ -425,6 +435,11 @@ class TestT6NonContiguous:
         assert allclose(ma.grad, t2np(ta.grad))
         assert allclose(mb.grad, t2np(tb.grad))
 
+    def test_reshape_and_transpose_preserve_numpy_view_storage(self):
+        a = Tensor(rand(3, 4), requires_grad=True)
+        assert np.shares_memory(a.data, a.reshape(4, 3).data)
+        assert np.shares_memory(a.data, a.transpose(0, 1).data)
+
 
 # ============================================================
 # T7 — 图与 no_grad
@@ -450,14 +465,17 @@ class TestT7Graph:
         # 在 no_grad 作用域外调用 backward 应该失败或者无梯度
         # （实现约定：no_grad 下的输出 requires_grad=False）
         assert not r.requires_grad
+        with pytest.raises(RuntimeError):
+            r.backward()
 
     def test_detach_cuts_grad(self):
         a_np = rand(3)
         ma = Tensor(a_np.copy(), requires_grad=True)
         b = ma * 2.0
         b_det = b.detach()
-        c = b_det * 3.0
-        # c 的计算图不连接到 ma，c.sum().backward() 后 ma.grad 应为 None
+        independent = Tensor(np.ones(3), requires_grad=True)
+        c = b_det * independent
+        # c 的图由 independent 承载，但不连接到 ma。
         c.sum().backward()
         assert ma.grad is None, "detach 后梯度不应传回原 leaf"
 

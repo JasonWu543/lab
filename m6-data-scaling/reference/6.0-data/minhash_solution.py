@@ -125,20 +125,24 @@ def dedup(
     index = LSHIndex(num_perm=num_perm, bands=bands)
 
     sigs: list[np.ndarray] = []
+    nonempty: list[bool] = []
     for doc in docs:
         sh = shingle(doc, k=k)
+        nonempty.append(bool(sh))
         sigs.append(hasher.signature(sh))
 
     removed: set[int] = set()
     dup_pairs: list[tuple[int, int]] = []
 
     for i, sig_i in enumerate(sigs):
+        # 空 shingle 集合的全 MAX 签名只是哨兵，不表示短文档彼此相似。
+        # 否则任意两篇少于 k 个词的文档都会被误判为完全重复。
+        if not nonempty[i]:
+            continue
         cands = index.candidates(sig_i)
         for j in cands:
             if j >= i:
                 continue  # j 已经早于 i（索引里只有 < i 的）
-            if j in removed:
-                continue
             est = jaccard_estimate(sigs[j], sig_i)
             if est >= threshold:
                 removed.add(i)

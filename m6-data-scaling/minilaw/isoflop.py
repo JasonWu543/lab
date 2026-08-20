@@ -10,9 +10,9 @@
 思路提示：
   - 对每个 C 组，用 np.polyfit(log_N, L, 2) 拟合二次多项式
     系数 [a, b, c]，即 L ≈ a·x² + b·x + c（x = log N）
-  - 顶点（谷底）在 x_opt = -b/(2a)，即 N_opt = exp(x_opt)
-  - 注意 a > 0 才有最小值（开口向上）；否则退化处理
-  - np.polyval(coeffs, x_opt) 给出 L_min
+  - 对这个二次式求导：什么条件下驻点才是谷底？
+  - 从 log N 空间变回 N 空间时需要做什么变换？
+  - 如果拟合曲线没有谷底，怎样给出不越过观测范围的退化结果？
 
 运行测试：
   cd m6-data-scaling && python3 -m pytest tests/test_scaling.py::TestT6IsoflopMinima -x -q
@@ -31,5 +31,5 @@ def isoflop_minima(runs: list[dict]) -> list[dict]:
     返回 [{"C", "N_opt", "L_min"}, ...]。组内点数 < 3 时跳过该组。
     """
     # TODO U3-Step1: 按 C 分组
-    # TODO U3-Step2: 对每组做 np.polyfit(log_N, L, 2)，提取谷底 N_opt 和 L_min
+    # TODO U3-Step2: 对每组拟合二次曲线，并从曲线性质推导谷底
     raise NotImplementedError("TODO: isoflop_minima")

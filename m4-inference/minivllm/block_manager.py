@@ -12,7 +12,9 @@ U4 任务（U2/U3 完成后回来）：
 
   num_free_blocks  : int property
                      可用 block 总数 = 纯空闲块 + 可驱逐的 cached 块
-  can_allocate(seq): 检查 prefill 准入（prefix 命中后实际需要的新块数 ≤ 空闲数）
+  can_allocate(seq): 检查 prefill 准入（prefix 命中后实际需要的新块数 ≤ 空闲数）。
+                     若 prefill 后还要 decode，需为首个输出 token 的 KV slot
+                     预留容量；can_allocate 与 allocate 必须使用相同计数
   allocate(seq)    : 分配 block_table；命中前缀的块直接复用（refcount+1）
   can_append(seq)  : decode 准入（跨块边界时需 1 个空闲块）
   append_slot(seq) : decode 后更新 block_table；跨块边界时分配新块

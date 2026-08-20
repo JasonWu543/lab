@@ -38,11 +38,10 @@ import regex  # 支持 \p{L} \p{N} 等 unicode 属性类
 
 # GPT-2 原版预分词 pattern（直接给你，不用背；建议逐段读懂它切了什么）
 GPT2_PATTERN = regex.compile(
-    r"""'(?:[sdmt]|ll|ve|re)|"""
-    r"""[^\r\n\p{L}\p{N}]?\p{L}+|"""
-    r"""\p{N}{1,3}|"""
-    r""" ?[^\s\p{L}\p{N}]+[\r\n]*|"""
-    r"""\s*[\r\n]+|"""
+    r"""'s|'t|'re|'ve|'m|'ll|'d|"""
+    r""" ?\p{L}+|"""
+    r""" ?\p{N}+|"""
+    r""" ?[^\s\p{L}\p{N}]+|"""
     r"""\s+(?!\S)|"""
     r"""\s+"""
 )

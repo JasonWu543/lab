@@ -11,6 +11,7 @@ Phase 1.2: Qwen-like Transformer 测试套件
 import os
 import sys
 import math
+import inspect
 import pytest
 import torch
 import torch.nn as nn
@@ -383,6 +384,20 @@ class TestT5CachedDecode:
             model(ids, kv_cache=cache)
         assert cache.seq_len == 4
 
+    def test_cached_multi_token_append_matches_full_forward(self, small_cfg):
+        """Catch cache masks that only work for one-token decode steps."""
+        torch.manual_seed(16)
+        model = MiniLM(small_cfg).eval()
+        prefix = torch.randint(0, small_cfg.vocab_size, (2, 3))
+        suffix = torch.randint(0, small_cfg.vocab_size, (2, 4))
+        cache = KVCache(small_cfg, 2, small_cfg.max_seq_len, "cpu", torch.float32)
+        with torch.no_grad():
+            model(prefix, kv_cache=cache)
+            cached = model(suffix, kv_cache=cache)
+            full = model(torch.cat([prefix, suffix], dim=1))[:, prefix.shape[1]:]
+        assert torch.allclose(cached, full, atol=1e-5), \
+            f"multi-token cached append mismatch: {(cached - full).abs().max():.2e}"
+
 
 # ──────────────────────────────────── T6 ───────────────────────────────────
 
@@ -473,6 +488,13 @@ class TestT6Sampling:
         result = generate(model, input_ids, max_new_tokens=4, use_cache=False)
         assert result.shape == (1, 7)
 
+    @pytest.mark.parametrize("use_cache", [False, True])
+    def test_generate_zero_new_tokens_is_noop(self, small_cfg, use_cache):
+        model = MiniLM(small_cfg).eval()
+        input_ids = torch.randint(0, small_cfg.vocab_size, (2, 4))
+        result = generate(model, input_ids, max_new_tokens=0, use_cache=use_cache)
+        assert torch.equal(result, input_ids)
+
 
 # ──────────────────────────────────── T7 ───────────────────────────────────
 
@@ -488,6 +510,10 @@ class TestT7QwenLoad:
 
     def test_load_qwen_shape(self):
         from minilm.model.convert_qwen import load_qwen
+        sig = inspect.signature(load_qwen)
+        assert list(sig.parameters) == ["weight_dir", "device", "dtype"]
+        assert sig.parameters["device"].default == "cpu"
+        assert sig.parameters["dtype"].default is torch.float32
         model = load_qwen(QWEN_WEIGHT_DIR)
         assert isinstance(model, MiniLM)
         # Qwen2.5-0.5B: 24 layers, hidden=896

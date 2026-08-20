@@ -14,13 +14,16 @@ a minimal reproducer, and the correct fix.
 
 - **File**: `sampling.py` line 113–121
 - **Category**: Numerical / Correctness
-- **Severity**: P1 — wrong results in nucleus sampling; distribution is
-  too narrow (one extra token excluded)
+- **Severity**: P1 — wrong results at an exact cumulative-probability boundary;
+  the retained set is one token narrower than the conventional strict-boundary
+  top-p policy used by common implementations
 - **Mechanism**: `sorted_indices_to_remove = cumulative_probs >= p` uses `>=`
   instead of `>`. The shift (`[..., 1:] = [..., :-1]`) is intended to keep
   the token that first exceeds the threshold, but because the mask is already
   set on tokens that hit the boundary exactly, the shift doesn't fully
-  compensate. Tokens with cumsum == p are incorrectly removed.
+  compensate. At `cumsum == p`, the next token is excluded even though this
+  exercise defines top-p as retaining through the first prefix that *strictly
+  exceeds* `p`.
 - **Minimal reproducer**:
 
 ```python
@@ -32,7 +35,7 @@ logits = torch.tensor([[2.0, 2.0, -100.0, -100.0]])
 out = top_p_filter(logits, p=0.5)
 probs = F.softmax(out, dim=-1)
 surviving = (out > float("-inf")).sum().item()
-print(surviving)  # buggy: may be 1 (only 1 token); correct: 2
+print(surviving)  # buggy: 1 token; correct under this contract: 2
 ```
 
 - **Fix**: Change `>=` to `>`:
@@ -46,14 +49,13 @@ print(surviving)  # buggy: may be 1 (only 1 token); correct: 2
 
 - **File**: `sampling.py` line 165
 - **Category**: Numerical / Correctness
-- **Severity**: P1 — penalty *increases* suppression of negative-logit tokens
-  instead of reducing it, biasing sampling toward unlikely tokens after context
+- **Severity**: P1 — seen tokens with negative logits are made more likely
+  instead of being suppressed, biasing sampling toward repetition
 - **Mechanism**: The code does `score[b, token_ids] /= penalty` for all seen
   tokens. For a positive logit L, dividing by penalty > 1 makes it smaller
   (correct: reduces probability). For a negative logit -L, dividing by
   penalty > 1 makes it *less* negative (less negative = higher logit = higher
-  probability — correct direction). Actually wait — wait, let me re-state
-  precisely what is wrong: the reference implementation (HuggingFace) uses
+  probability, the wrong direction). The sign-aware repetition-penalty rule uses
   `logit / penalty` for positive logits and `logit * penalty` for negative
   logits. By doing only `/= penalty` for all, negative logits become *less*
   negative, which *increases* their probability — the opposite of penalizing
@@ -82,16 +84,16 @@ print(out[0, 0].item())  # buggy: -2.0; correct: -4.5
 
 ---
 
-### Bug 3 — temperature=0 causes ZeroDivisionError
+### Bug 3 — temperature=0 reaches invalid multinomial probabilities
 
 - **File**: `sampling.py` lines 38 and 65
 - **Category**: Numerical / Correctness
-- **Severity**: P0 — crashes in production when greedy decoding is requested
-  via temperature=0 (a common pattern)
+- **Severity**: P0 — crashes when callers use temperature=0 to request greedy
+  decoding (a common API convention)
 - **Mechanism**: `_validate_temperature` is a no-op (just `pass`). Line 65
-  does `logits / temperature` with no guard. When `temperature=0`, Python
-  raises `ZeroDivisionError` for Python floats, or produces `inf`/`nan` for
-  tensors (depending on dtype), both of which corrupt downstream sampling.
+  does tensor division by `temperature` with no guard. With `temperature=0`,
+  PyTorch produces `inf`/`nan`; `torch.multinomial` then raises `RuntimeError`
+  because its probability tensor is invalid.
 - **Minimal reproducer**:
 
 ```python
@@ -99,7 +101,7 @@ import torch
 from sampling import temperature_sample
 
 logits = torch.randn(1, 100)
-temperature_sample(logits, temperature=0)  # ZeroDivisionError or nan
+temperature_sample(logits, temperature=0)  # RuntimeError: invalid probabilities
 ```
 
 - **Fix**: Guard in `_validate_temperature` or inline:
@@ -116,13 +118,14 @@ temperature_sample(logits, temperature=0)  # ZeroDivisionError or nan
 
 - **File**: `metrics.py` line 60
 - **Category**: Numerical / Correctness
-- **Severity**: P0 — perplexity values are systematically wrong by a factor
-  of `2^H / e^H` where H is cross-entropy in nats; for H≈3, this is ~8x off
+- **Severity**: P0 — perplexity values are systematically inflated by a factor
+  of `exp(H / ln(2) - H)` where H is cross-entropy in nats; for H≈3, this is
+  about 3.77x
 - **Mechanism**: `F.cross_entropy` returns cross-entropy in *nats* (natural
   log). Line 60 divides by `math.log(2)` to convert to *bits*, but then line
   64 exponentiates with `exp()` as if the loss is still in nats. The correct
   formula is `exp(avg_loss_in_nats)`. The code computes `exp(avg_loss_in_bits)`
-  which equals `2^H` instead of `e^H`.
+  which equals `exp(H / ln(2))` instead of `exp(H)`.
 - **Minimal reproducer**:
 
 ```python
@@ -187,7 +190,7 @@ print(kt[0, 0, 0, 0].item())  # buggy: 0.0; correct: 10.0
 
 ### Bug 6 — in-place modification of caller's logits tensor
 
-- **File**: `sampling.py` line 157 (`score = logits`) + line 165
+- **File**: `sampling.py` line 158 (`score = logits`) + line 165
 - **Category**: Numerical / Correctness
 - **Severity**: P0 — silently mutates the caller's tensor; any downstream use
   of the original logits (e.g., top-k after repetition penalty) is corrupted
@@ -215,10 +218,10 @@ print(torch.allclose(logits, original))  # False — caller's tensor mutated!
 
 - **File**: `test_pr.py` line 360
 - **Category**: Test Bug
-- **Severity**: P2 — provides false confidence; the "test" cannot fail
+- **Severity**: P2 — provides false confidence by barely constraining the result
 - **Mechanism**: `assert result is not None` where `result` is the return
-  value of `ThroughputTracker.summary()`, which always returns a dict. A dict
-  is never `None`. This catches nothing.
+  value of `ThroughputTracker.summary()`. It catches a regression to `None`, but
+  accepts `{}` or a dict with incorrect values, so it never verifies throughput.
 - **Minimal reproducer**:
 
 ```python
@@ -243,12 +246,15 @@ assert result is not None  # trivially True
 - **Severity**: P1 — the test for top-p nucleus filtering passes even when
   the implementation is wrong
 - **Mechanism**: `TestTopPFilter::test_top_p_filters_enough_tokens` ends with
-  `assert surviving_mass >= 0.0` — this is also an always-true assertion (same
-  as bug #7), specifically written to avoid catching the off-by-one in top-p
-  (bug #1). A correct test would assert `surviving_mass >= p`.
+  `assert surviving_mass >= 0.0`, which cannot constrain a softmax probability.
+  Also, softmax is applied *after* filtering, so surviving entries renormalize
+  to 1; merely changing the threshold to `p` would still be vacuous. Measure the
+  retained mask against the original distribution instead.
 - **Fix**:
   ```python
-  assert surviving_mass >= 0.9  # must retain at least p=0.9 mass
+  original_probs = F.softmax(logits, dim=-1)
+  retained = torch.isfinite(out)
+  assert original_probs[retained].sum().item() >= 0.9
   ```
 
 ---
@@ -258,7 +264,7 @@ assert result is not None  # trivially True
 - **File**: `test_pr.py` lines 67–73
 - **Category**: Test Bug
 - **Severity**: P2 — non-deterministic; very rarely fails but theoretically
-  possible (1 in 1000^30 ≈ 0 chance for uniform over 1000 tokens — but the
+  possible (probability `1000^-29` for 30 uniform draws — negligible here, but
   *principle* is wrong and will bite on smaller vocabs)
 - **Mechanism**: `test_sampling_is_stochastic` calls `temperature_sample`
   30 times inside a loop with no `torch.manual_seed`, producing different
@@ -296,7 +302,8 @@ assert result is not None  # trivially True
   first few timed iterations absorb Python/PyTorch startup overhead
 - **Mechanism**: The benchmark runs 5 warmup iterations for `_compiled_top_p`
   but zero warmup iterations for `_eager_top_p`. The eager variant's first
-  calls include module import and JIT tracing overhead.
+  calls can include one-time dispatcher, allocator, and backend initialization.
+  Module import has already completed, and eager execution does not JIT-trace.
 - **Fix**: Add equivalent warmup for the eager variant:
   ```python
   for _ in range(5):
@@ -325,15 +332,17 @@ assert result is not None  # trivially True
 
 ---
 
-### Bug 13 — repeated sort in per-row loop (O(n·vocab) instead of O(vocab))
+### Bug 13 — per-row top-k calls serialize batched work in Python
 
 - **File**: `sampling.py` lines 88–92
 - **Category**: Performance Bug
-- **Severity**: P2 — O(batch) calls to `torch.topk` in Python loop instead
-  of one batched call; for batch_size=512 this is a 512× overhead on the sort
+- **Severity**: P2 — O(batch) framework/kernel invocations and Python dispatches
+  replace one batched call, losing vectorization and device parallelism
 - **Mechanism**: `top_k_filter` loops over `range(logits.size(0))` and calls
-  `torch.topk(logits[i], k)` inside the loop. PyTorch's `topk` supports
-  batched input natively.
+  `torch.topk(logits[i], k)` inside the loop. PyTorch's `topk` supports batched
+  input. Both versions process the same asymptotic `batch * vocab` elements;
+  the defect is dispatch/launch overhead and serialization, not 512x more sort
+  work.
 - **Fix**:
   ```python
   top_vals, top_idx = torch.topk(logits, k, dim=-1)
@@ -344,16 +353,17 @@ assert result is not None  # trivially True
 
 ---
 
-### Bug 14 — repeated memory allocation in loop
+### Bug 14 — zero-initialize then refill batch tensors in Python
 
 - **File**: `kv_utils.py` lines 213–215
 - **Category**: Performance Bug
-- **Severity**: P2 — allocates `2 * n_layers` new zero tensors every call;
-  for 32-layer models this is 64 unnecessary allocations per forward step
-- **Mechanism**: `batch_k = torch.zeros(...)` and `batch_v = torch.zeros(...)`
-  are called inside `for layer_idx in range(n_layers)`. The tensors are
-  overwritten immediately by the inner loop, so the zero-initialization is
-  wasted work.
+- **Severity**: P2 — needlessly zero-initializes output tensors and then fills
+  them row by row in Python instead of using a stacking primitive
+- **Mechanism**: Under the annotated input type (`list[Tensor]`), `n_layers` is
+  always 1, so the earlier 64-allocation claim is false. The real issue is that
+  the two output tensors are zero-filled and every element is then overwritten
+  through Python assignments. The attempted nested-list branch is not a working
+  multi-layer API.
 - **Fix**: Use `torch.empty(...)` and let the inner loop fill values, or
   use `torch.stack` outside the loop:
   ```python
@@ -382,8 +392,8 @@ import torch
 
 logits = torch.randn(1, 10)
 ids = torch.randint(0, 10, (1, 5))
-apply_repetition_penalty(logits, ids)
-apply_repetition_penalty(logits, ids)
+apply_repetition_penalty(logits, ids, penalty=1.2)
+apply_repetition_penalty(logits, ids, penalty=1.2)
 # Now inspect the default cache — it has 2 entries from separate calls!
 import inspect
 sig = inspect.signature(apply_repetition_penalty)
@@ -466,21 +476,66 @@ cache_seq_len([(k, v)])  # IndexError!
 
 | # | File | Line | Category | Severity | Short name |
 |---|------|------|----------|----------|-----------|
-| 1 | sampling.py | 113 | Numerical | P1 | top-p off-by-one (>= vs >) |
+| 1 | sampling.py | 116 | Numerical | P1 | top-p off-by-one (>= vs >) |
 | 2 | sampling.py | 165 | Numerical | P1 | repetition penalty wrong sign branch |
-| 3 | sampling.py | 38/65 | Numerical | P0 | temperature=0 ZeroDivisionError |
+| 3 | sampling.py | 38/65 | Numerical | P0 | temperature=0 invalid probabilities/crash |
 | 4 | metrics.py | 60 | Numerical | P0 | perplexity log base confusion |
 | 5 | kv_utils.py | 59 | Numerical | P0 | sliding window clips newest not oldest |
-| 6 | sampling.py | 156 | Numerical | P0 | in-place mutation of caller tensor |
-| 7 | test_pr.py | 360 | Test | P2 | always-true assertion (is not None) |
-| 8 | test_pr.py | 131 | Test | P1 | test mirrors top-p bug (>= 0.0) |
+| 6 | sampling.py | 158 | Numerical | P0 | in-place mutation of caller tensor |
+| 7 | test_pr.py | 360 | Test | P2 | severely under-specified assertion |
+| 8 | test_pr.py | 131 | Test | P1 | vacuous top-p mass assertion |
 | 9 | test_pr.py | 73 | Test | P2 | flaky test — no seed |
 | 10 | test_pr.py | — | Test | P0 | zero coverage of temperature=0 |
 | 11 | bench.py | 63 | Benchmark | P2 | warmup only for compiled variant |
 | 12 | bench.py | 76 | Benchmark | P1 | unequal batch sizes (64 vs 1) |
-| 13 | sampling.py | 88 | Performance | P2 | repeated topk in Python loop |
-| 14 | kv_utils.py | 213 | Performance | P2 | repeated zeros alloc in loop |
+| 13 | sampling.py | 88 | Performance | P2 | per-row topk serializes batched work |
+| 14 | kv_utils.py | 213 | Performance | P2 | wasted zero-fill and Python copy loop |
 | 15 | sampling.py | 133 | Design | P1 | mutable default argument |
 | 16 | kv_utils.py | 178 | Design | P1 | silent exception swallowing |
 | 17 | sampling.py | 29/148 | Design | P2 | docstring contradicts behavior |
 | 18 | kv_utils.py | 152 | Design | P1 | crash on seq_len=0 edge case |
+
+## Additional accidental issue (not part of scored 18)
+
+This issue was not one of the deliberately planted review targets and does
+**not** count toward the 18-point score. The exercise code is intentionally
+left unchanged so the scored material remains stable.
+
+### `batch_prefill_cache` does not preserve or validate its inputs
+
+- **File**: `kv_utils.py` lines 204–219
+- **Category**: Correctness / Robustness
+- **Severity**: P1
+- **Mechanism**:
+  - `zip(keys_list, values_list)` silently truncates unequal lists, while the
+    output batch is allocated from `len(keys_list)`. Missing values therefore
+    leave zero-filled rows instead of raising an error.
+  - Both outputs use `k_ref.dtype`, silently converting values with a different
+    dtype.
+  - `torch.zeros(...)` does not inherit `k_ref.device`, so CUDA inputs allocate
+    CPU destinations and fail during assignment.
+- **Minimal reproducer**:
+
+  ```python
+  import torch
+  from kv_utils import batch_prefill_cache
+
+  k = torch.ones(1, 1, 1, 1, dtype=torch.float32)
+  v = torch.ones(1, 1, 1, 1, dtype=torch.float64)
+
+  # Unequal lengths are accepted; the second output row remains zero-filled.
+  out = batch_prefill_cache([k, k], [v])
+  print(out[0][1].shape, out[0][1][1].item())  # (2, 1, 1, 1), 0.0
+
+  # The float64 value is silently converted to the key's float32 dtype.
+  print(out[0][1].dtype)  # torch.float32
+
+  # On a CUDA machine, CUDA inputs still create CPU destination tensors and
+  # assignment raises a device-mismatch error.
+  if torch.cuda.is_available():
+      batch_prefill_cache([k.cuda()], [v.cuda()])
+  ```
+
+- **Expected resolution outside this exercise**: Validate non-empty, equal
+  input lengths and compatible shapes; preserve the key and value devices and
+  dtypes independently. Do not apply that fix to this scored `pr/` snapshot.

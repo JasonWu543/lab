@@ -26,16 +26,16 @@ from typing import Optional
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _validate_temperature(temperature: float) -> None:  # BUG #17 — docstring lie
+def _validate_temperature(temperature: float) -> None:
     """Validate that temperature is a positive finite float.
 
     Raises ValueError if temperature is non-positive.
     Temperature must be strictly greater than 0 for valid probability
     distributions.
     """
-    # NOTE: validation intentionally omitted for performance in hot path;
-    # callers are expected to ensure temperature > 0.
-    pass  # BUG #3: no guard — temperature=0 causes ZeroDivisionError downstream
+    # Validation is kept as a helper so callers share one policy.
+    # The sampling path calls this before scaling logits.
+    pass
 
 
 def _build_token_index(token_ids: Tensor, vocab_size: int) -> Tensor:
@@ -62,7 +62,7 @@ def temperature_sample(logits: Tensor, temperature: float = 1.0) -> Tensor:
         Long tensor of shape (batch_size,) with sampled token ids.
     """
     _validate_temperature(temperature)
-    scaled = logits / temperature  # BUG #3: ZeroDivisionError when temperature=0
+    scaled = logits / temperature
     probs = F.softmax(scaled, dim=-1)
     return torch.multinomial(probs, num_samples=1).squeeze(-1)
 
@@ -85,17 +85,17 @@ def top_k_filter(logits: Tensor, k: int) -> Tensor:
     if k >= logits.size(-1):
         return logits.clone()
 
-    # BUG #13: topk called once per row via a Python loop instead of batched
+    # Build a filtered result for each row in the batch.
     result = torch.full_like(logits, float("-inf"))
     for i in range(logits.size(0)):
-        top_vals, top_idx = torch.topk(logits[i], k)  # redundant per-row loop
+        top_vals, top_idx = torch.topk(logits[i], k)
         result[i, top_idx] = top_vals
     return result
 
 
 def top_p_filter(logits: Tensor, p: float = 0.9) -> Tensor:
     """Apply nucleus (top-p) filtering: keep fewest tokens whose cumulative
-    probability mass meets or exceeds p.
+    probability mass strictly exceeds p.
 
     Args:
         logits: Float tensor of shape (batch_size, vocab_size).
@@ -110,13 +110,13 @@ def top_p_filter(logits: Tensor, p: float = 0.9) -> Tensor:
     sorted_logits, sorted_indices = torch.sort(logits, dim=-1, descending=True)
     cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
 
-    # BUG #1: uses >= instead of > — this excludes one token too many.
-    # The correct condition removes tokens *after* the cumsum first exceeds p,
-    # but >= also removes the token that brings cumsum to exactly p.
+    # Mark the cumulative-probability tail for removal.
+    # The following shift retains the boundary token.
+    # This keeps at least one candidate even for very small p.
     sorted_indices_to_remove = cumulative_probs >= p
-    # Shift right so the token that pushes cumsum over p is retained.
-    # BUG #1 in action: we do the shift but still have the wrong comparison,
-    # making the shift's intent contradicted by the >= (they compound).
+    # Shift the removal mask by one position.
+    # This retains a boundary candidate.
+    # Clone because the source and destination slices overlap.
     sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
     sorted_indices_to_remove[..., 0] = False
 
@@ -130,7 +130,7 @@ def apply_repetition_penalty(
     logits: Tensor,
     input_ids: Tensor,
     penalty: float = 1.0,
-    _seen_cache: list = [],   # BUG #15: mutable default argument
+    _seen_cache: list = [],
 ) -> Tensor:
     """Apply repetition penalty to discourage repeated token generation.
 
@@ -145,23 +145,23 @@ def apply_repetition_penalty(
 
     Returns:
         Logits tensor with repetition penalty applied.
-        Note: returns probabilities summing to 1.  ← BUG #17: wrong docstring
+        Note: returns probabilities summing to 1.
 
     """
     if penalty == 1.0:
         return logits
 
-    _seen_cache.append(input_ids.shape)  # BUG #15: mutates mutable default
+    _seen_cache.append(input_ids.shape)
 
-    # BUG #6: modifies logits in-place, corrupting the caller's tensor
-    # Should be: score = logits.clone()
+    # Use a local name for the scores being adjusted.
+    # Adjust each batch element independently.
     score = logits
     for b in range(score.size(0)):
         token_ids = input_ids[b].unique()
-        # BUG #2: applies penalty * logit for ALL logits including negative ones.
-        # For negative logits, multiplying by penalty > 1 makes them MORE negative,
-        # which *increases* the penalty instead of reducing it.
-        # Correct: positive logits / penalty, negative logits * penalty.
-        score[b, token_ids] /= penalty  # BUG #2: should branch on sign
+        # Apply the configured factor to tokens already present in the context.
+        # Unique ids avoid applying it more than once to repeated context tokens.
+        # Advanced indexing updates all selected token scores together.
+        # Unseen token scores remain unchanged.
+        score[b, token_ids] /= penalty
 
     return score

@@ -173,7 +173,7 @@ class Tensor:
         raise NotImplementedError
 
     def __truediv__(self, other) -> "Tensor":
-        """提示：a/b = a * b^(-1)，或直接 np.divide，梯度分别是 1/b 和 -a/b^2。"""
+        """除法。提示：分别把 numerator 和 denominator 当变量做标量求导，再检查 broadcast shape。"""
         raise NotImplementedError
 
     def __rtruediv__(self, other) -> "Tensor":
@@ -185,7 +185,7 @@ class Tensor:
     def __pow__(self, exponent) -> "Tensor":
         """exponent 只需支持标量（int/float）。
 
-        提示：d/dx x^n = n * x^(n-1)
+        提示：先在标量情形推导局部导数，再乘 upstream gradient。
         """
         raise NotImplementedError
 
@@ -214,25 +214,21 @@ class Tensor:
     # ------ 数学函数 ------
 
     def exp(self) -> "Tensor":
-        """提示：d/dx exp(x) = exp(x)，即梯度 = result.data * upstream_grad。"""
+        """指数函数；反向请从标量导数和链式法则推导。"""
         raise NotImplementedError
 
     def log(self) -> "Tensor":
-        """提示：d/dx log(x) = 1/x。"""
+        """对数函数；用有限差分自查反向。"""
         raise NotImplementedError
 
     def sigmoid(self) -> "Tensor":
-        """σ(x) = 1/(1+exp(-x))。
-
-        提示：dσ/dx = σ(x) * (1 - σ(x))，即 result.data * (1 - result.data)
-        """
+        """Sigmoid；思考反向能否复用前向结果，避免重复计算。"""
         raise NotImplementedError
 
     def maximum(self, scalar) -> "Tensor":
         """element-wise max(self, scalar)，scalar 为 Python 数值（如 0）。
 
-        提示：梯度是 mask，self.data > scalar 的位置为 1，否则为 0
-             （边界 self.data == scalar 时取 0 或 0.5 均可，测试不考边界）
+        提示：分段讨论输入在 scalar 两侧时输出如何变化；边界测试不考。
         """
         raise NotImplementedError
 

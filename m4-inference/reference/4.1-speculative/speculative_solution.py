@@ -145,13 +145,15 @@ def speculative_generate(
             # 接受概率 α = min(1, p(x) / q(x))
             p_xi = p_i[0, x_i[0]].item()
             q_xi = q_i[0, x_i[0]].item()
-            alpha = min(1.0, p_xi / (q_xi + 1e-12))
+            # x_i was sampled from q_i, so q_xi is positive.  Adding epsilon
+            # here would bias acceptance for small but representable masses.
+            alpha = min(1.0, p_xi / q_xi) if q_xi > 0.0 else 1.0
 
             # 采样接受/拒绝
             u = torch.rand(1, generator=generator).item()
             stats.proposed += 1
 
-            if u <= alpha:
+            if u < alpha:
                 # 接受该 token
                 generated = torch.cat([generated, x_i.unsqueeze(-1)], dim=1)
                 new_tokens_count += 1
@@ -164,7 +166,7 @@ def speculative_generate(
                 # 拒绝：从残差分布 norm(max(0, p−q)) 重采样
                 residual = torch.clamp(p_i - q_i, min=0.0)           # (1, V)
                 residual_sum = residual.sum(dim=-1, keepdim=True)
-                if residual_sum.item() < 1e-12:
+                if residual_sum.item() <= 0.0:
                     # 极端情况：p 完全被 q 覆盖，从 p 重采
                     residual = p_i
                 else:

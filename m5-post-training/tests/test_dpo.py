@@ -39,6 +39,7 @@ def _tiny_model(seed: int = 42):
         num_attention_heads=4,
         num_key_value_heads=2,
         max_position_embeddings=256,
+        pad_token_id=258,
         attn_implementation="eager",
     )
     model = Qwen2ForCausalLM(cfg)
@@ -102,6 +103,13 @@ class TestT1SequenceLogprob:
             f"与手工计算不一致: got={got[0].item():.6f}, expected={expected.item():.6f}"
         )
 
+        padded = torch.tensor([[10, 20, 30, 40, 50, 60, 258, 258]])
+        with torch.no_grad():
+            padded_lp = sequence_logprob(model, padded, prompt_lens)
+        assert torch.allclose(got, padded_lp, atol=1e-5), (
+            f"右 pad 被错误计入 response logp: {got.item()} vs {padded_lp.item()}"
+        )
+
     def test_prompt_content_does_not_affect_response_logprob(self):
         """仅改变 prompt token（不改 response）时，response 部分 logp 应改变（因为 context 变了），
         但 prompt_lens 边界确实是切割点：把 prompt_len 缩短 1，
@@ -158,7 +166,6 @@ class TestT1SequenceLogprob:
         has_grad = any(p.grad is not None and p.grad.abs().sum() > 0
                        for p in model.parameters())
         assert has_grad, "sequence_logprob 后的 loss.backward() 未给模型参数留梯度"
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # T2  bt_loss — 数学正确性
@@ -375,6 +382,7 @@ class TestT4TrainingInvariants:
         ref_model = copy.deepcopy(model)
         ref_model.requires_grad_(False)
         ref_model.eval()
+        ref_snapshot = {n: p.detach().clone() for n, p in ref_model.named_parameters()}
 
         # 多样的 toy 偏好对（4 对）
         pairs = [
@@ -431,15 +439,8 @@ class TestT4TrainingInvariants:
         )
 
         # ③ ref 参数逐位不变
-        for (name, ref_p), (_, policy_p) in zip(
-            ref_model.named_parameters(), model.named_parameters()
-        ):
-            assert torch.equal(ref_p.data, model.state_dict()[name]) is False or True  # just to avoid unused warning
-        # 正确检查：ref 原始快照 vs 当前 ref
-        ref_snapshot = {n: p.data.clone() for n, p in ref_model.named_parameters()}
-        # 再走一步看 ref 有没有改变
         for n, p in ref_model.named_parameters():
-            assert torch.equal(p.data, ref_snapshot[n]), (
+            assert torch.equal(p.detach(), ref_snapshot[n]), (
                 f"ref 参数 {n} 被意外修改"
             )
         # 确认 ref 和 policy 参数不再相同（policy 已训练）

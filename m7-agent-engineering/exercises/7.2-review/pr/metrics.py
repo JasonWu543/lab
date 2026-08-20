@@ -46,22 +46,22 @@ def compute_perplexity(
     logits_2d = logits.reshape(-1, vocab_size)
     labels_1d = labels.reshape(-1)
 
-    # BUG #4: uses log_softmax(...) / math.log(2) which converts to bits,
-    # then exponentiates as if in nats, yielding PPL = 2^(cross_entropy_nats)
-    # instead of e^(cross_entropy_nats).
-    # Correct: F.cross_entropy uses natural log internally; no conversion needed.
+    # Compute an unreduced token loss so ignored positions can be excluded.
+    # Flattening batch and sequence dimensions matches cross_entropy's API.
+    # The loss is converted below before aggregation.
+    # Keeping reduction="none" also makes the valid-token mask explicit.
     loss_per_token = F.cross_entropy(
         logits_2d,
         labels_1d,
         ignore_index=ignore_index,
         reduction="none",
     )
-    # BUG #4: converting to bits (dividing by ln 2 ≈ 0.693) inflates the loss
-    loss_in_bits = loss_per_token / math.log(2)  # BUG #4: wrong base conversion
+    # Express the per-token loss in bits for reporting consistency.
+    loss_in_bits = loss_per_token / math.log(2)
     valid_mask = labels_1d != ignore_index
     avg_loss = loss_in_bits[valid_mask].mean()
-    # Then exponentiating as if it's nats gives 2^H instead of e^H
-    return avg_loss.exp().item()  # BUG #4: should use the un-converted loss
+    # Convert the aggregate loss to a scalar perplexity value.
+    return avg_loss.exp().item()
 
 
 def compute_token_nll(

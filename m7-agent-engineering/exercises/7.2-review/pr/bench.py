@@ -60,21 +60,21 @@ def run_benchmark(
     print(f"Benchmark: top-p sampling  (vocab={vocab_size}, p={p})")
     print("-" * 60)
 
-    # BUG #11: warmup is only done for the compiled variant.
-    # The eager variant goes straight to timed runs without warmup,
-    # so its first few iterations include Python/PyTorch startup overhead,
-    # making it look slower than it really is.
+    # Run a short warmup before collecting timing samples.
+    # This also ensures compilation is complete before the timed region.
+    # A small warmup batch keeps startup time manageable.
+    # Timed inputs are constructed separately below.
 
-    # Warmup for compiled only
-    warmup_logits = torch.randn(1, vocab_size)  # BUG #12: batch_size=1 for warmup
+    # Warmup
+    warmup_logits = torch.randn(1, vocab_size)
     for _ in range(5):
         _compiled_top_p(warmup_logits, p)
 
-    # BUG #12: eager uses batch_size=64 while compiled uses batch_size=1.
-    # Throughput (tokens/s) comparison is meaningless because the two methods
-    # process a different number of tokens per call.
-    eager_batch  = 64   # BUG #12
-    compiled_batch = 1  # BUG #12
+    # Choose representative serving batch sizes for each execution mode.
+    # Throughput is normalized to tokens per second below.
+    # Latency and batch size are printed alongside the normalized result.
+    eager_batch  = 64
+    compiled_batch = 1
 
     eager_logits    = torch.randn(eager_batch, vocab_size)
     compiled_logits = torch.randn(compiled_batch, vocab_size)
@@ -92,7 +92,7 @@ def run_benchmark(
     print()
 
     speedup = eager_tps / max(compiled_tps, 1e-9)
-    print(f"  Reported speedup (compiled/eager): {1/speedup:.2f}x  ← misleading due to unequal batches")
+    print(f"  Reported speedup (compiled/eager): {1/speedup:.2f}x")
 
 
 if __name__ == "__main__":

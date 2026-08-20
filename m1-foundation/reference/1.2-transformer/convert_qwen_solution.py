@@ -29,7 +29,11 @@ def convert_qwen_config(qwen_config: dict) -> ModelConfig:
     )
 
 
-def load_qwen(weight_dir: Union[str, Path]) -> MiniLM:
+def load_qwen(
+    weight_dir: Union[str, Path],
+    device="cpu",
+    dtype=torch.float32,
+) -> MiniLM:
     """
     从 Qwen2.5 权重目录加载 MiniLM 模型。
 
@@ -54,7 +58,7 @@ def load_qwen(weight_dir: Union[str, Path]) -> MiniLM:
         qwen_cfg = json.load(f)
 
     cfg = convert_qwen_config(qwen_cfg)
-    model = MiniLM(cfg)
+    model = MiniLM(cfg).to(device=device, dtype=dtype)
 
     # Load weights from safetensors or pytorch bin
     qwen_state = {}

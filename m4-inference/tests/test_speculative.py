@@ -215,6 +215,19 @@ class TestT3CorrectionMath:
             f"合成输出分布 ≠ target 分布 p：TV={_tv(first_empirical, p):.4f}"
         )
 
+    def test_zero_rng_draw_does_not_accept_zero_probability(self, monkeypatch):
+        """Finite-precision RNG includes 0, which must not pass alpha == 0."""
+        target = ConstLogitsLM(torch.tensor([10.0, 0.0, -10.0]))
+        draft = ConstLogitsLM(torch.tensor([-10.0, 0.0, 10.0]))
+        prompt = torch.zeros(1, 1, dtype=torch.long)
+        monkeypatch.setattr(torch, "rand", lambda *args, **kwargs: torch.zeros(1))
+        out, stats = speculative_generate(
+            target, draft, prompt, max_new_tokens=1, k=1, temperature=0.0,
+            generator=torch.Generator().manual_seed(0),
+        )
+        assert out[0, -1].item() == 0
+        assert stats.accepted == 0
+
 
 # ──────────────────────────────────── T4 ───────────────────────────────────
 

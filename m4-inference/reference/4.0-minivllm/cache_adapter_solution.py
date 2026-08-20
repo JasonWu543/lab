@@ -74,7 +74,9 @@ def _cached_kv_len(seq: Sequence) -> int:
     """seq 进入本步前已有的 KV token 数。"""
     if seq.status == SeqStatus.RUNNING and seq.output_ids:
         return seq.num_tokens() - 1
-    return seq.num_cached_tokens
+    # A block-granular hit can cover an entire aligned prompt, but a CausalLM
+    # still needs one input token to produce next-token logits.
+    return min(seq.num_cached_tokens, max(seq.num_tokens() - 1, 0))
 
 
 def _gather_seq_kv(

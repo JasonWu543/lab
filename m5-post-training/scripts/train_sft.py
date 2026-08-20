@@ -158,7 +158,11 @@ def main():
         # Extract per-example losses using doc_spans + manual CE
         import torch.nn.functional as F
         ids_t = batch["input_ids"].unsqueeze(0)
-        out = model(input_ids=ids_t)
+        bool_mask = batch["attention_mask"]
+        mask_dtype = next(model.parameters()).dtype
+        additive_mask = torch.zeros_like(bool_mask, dtype=mask_dtype)
+        additive_mask.masked_fill_(~bool_mask, torch.finfo(mask_dtype).min)
+        out = model(input_ids=ids_t, attention_mask=additive_mask.unsqueeze(0))
         logits = out.logits[0]
 
         labs = batch["labels"]

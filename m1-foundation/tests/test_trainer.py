@@ -435,7 +435,7 @@ class TestT6Resume:
             accum=accum, micro_bs=micro_bs)
         trainer_b = Trainer(model_b, cfg_b, dl_b)
         all_logs = trainer_b.train()
-        baseline_losses = [e["loss"] for e in all_logs[split_at:]]
+        baseline_logs = all_logs[split_at:]
 
         # --- Run 1: identical config, stop manually at split_at, save ---
         ckpt_path = tmp_path / "ckpt.pt"
@@ -464,17 +464,39 @@ class TestT6Resume:
 
         resumed_losses = [e["loss"] for e in trainer_r2.train()]
 
-        assert len(resumed_losses) == len(baseline_losses), (
-            f"Expected {len(baseline_losses)} resumed steps, got {len(resumed_losses)}"
+        assert len(resumed_losses) == len(baseline_logs), (
+            f"Expected {len(baseline_logs)} resumed steps, got {len(resumed_losses)}"
         )
-        for i, (bl, rl) in enumerate(zip(baseline_losses, resumed_losses)):
+        for i, (baseline, rl) in enumerate(zip(baseline_logs, resumed_losses)):
+            bl = baseline["loss"]
             abs_step = split_at + i + 1
-            assert abs(bl - rl) < 1e-5, (
+            assert bl == rl, (
                 f"Resume diverged at step {abs_step}: "
                 f"baseline_loss={bl:.8f}, resumed_loss={rl:.8f}, diff={abs(bl-rl):.2e}. "
                 + (hint or "Hint: check that ALL state (model, optimizer, RNG, "
                            "dataloader position) is restored.")
             )
+
+        for name, baseline_param in model_b.state_dict().items():
+            assert torch.equal(baseline_param, model_r2.state_dict()[name]), \
+                f"final parameter {name} is not bit-identical after resume"
+
+        def assert_nested_equal(a, b):
+            if isinstance(a, torch.Tensor):
+                assert torch.equal(a, b)
+            elif isinstance(a, dict):
+                assert a.keys() == b.keys()
+                for key in a:
+                    assert_nested_equal(a[key], b[key])
+            elif isinstance(a, (list, tuple)):
+                assert len(a) == len(b)
+                for x, y in zip(a, b):
+                    assert_nested_equal(x, y)
+            else:
+                assert a == b
+
+        assert_nested_equal(
+            trainer_b.optimizer.state_dict(), trainer_r2.optimizer.state_dict())
 
     def test_resume_matches_baseline(self, tmp_path):
         # 1024 tokens → 63 batches/epoch：30 步不跨 epoch，纯恢复正确性
@@ -552,7 +574,7 @@ class TestT8Corruption:
         model2 = _make_model()
         opt2 = torch.optim.AdamW(model2.parameters(), lr=1e-3, betas=(0.9, 0.95), weight_decay=0.1)
 
-        with pytest.raises(CheckpointCorruptError, match=""):
+        with pytest.raises(CheckpointCorruptError):
             load_checkpoint(ckpt_path, model=model2, optimizer=opt2)
 
 

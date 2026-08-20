@@ -118,6 +118,19 @@ def test_t3_hf_reference_alignment(corpus, tmp_path):
         assert n_ours == n_hf, f"{w!r}: ours={n_ours} hf={n_hf}"
 
 
+def test_t3_gpt2_digit_runs_are_not_split_at_three_digits(tmp_path):
+    r"""GPT-2 uses `` ?\p{N}+``; ``{1,3}`` is a different tokenizer family.
+
+    With one merge slot, the unsplit pre-token ``1234`` has three tied pairs,
+    so the specified byte-order tie-break must choose ``34``.  Splitting the
+    digits as ``123`` + ``4`` incorrectly chooses ``23`` instead.
+    """
+    corpus = _write_corpus(tmp_path / "digits.txt", ["1234"] * 50)
+    tok = BPETokenizer.train(corpus, vocab_size=258, special_tokens=[EOT])
+    assert len(tok.encode("34")) == 1
+    assert len(tok.encode("23")) == 2
+
+
 # ---------- T4 special tokens ----------
 
 def test_t4_special_token_atomic(tok):

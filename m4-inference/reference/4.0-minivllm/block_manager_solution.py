@@ -105,7 +105,7 @@ class BlockManager:
 
     def can_allocate(self, seq: Sequence) -> bool:
         _, cached_tokens = self.match_prefix(seq.request.prompt_ids)
-        total_tokens = len(seq.request.prompt_ids)
+        total_tokens = len(seq.request.prompt_ids) + (seq.request.max_new_tokens > 1)
         total_blocks = (total_tokens + self.block_size - 1) // self.block_size
         cached_blocks = cached_tokens // self.block_size
         new_blocks_needed = total_blocks - cached_blocks
@@ -122,7 +122,7 @@ class BlockManager:
     def allocate(self, seq: Sequence) -> None:
         """prefill 分配：prefix cache 命中的块 refcount+1，其余新分配。"""
         token_ids = seq.request.prompt_ids
-        total_tokens = len(token_ids)
+        total_tokens = len(token_ids) + (seq.request.max_new_tokens > 1)
         total_blocks = (total_tokens + self.block_size - 1) // self.block_size
 
         cached_blocks, cached_tokens = self.match_prefix(token_ids)

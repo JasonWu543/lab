@@ -49,10 +49,10 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor, positions:
 
 
 def mha_cache_bytes(cfg: MoEConfig, batch_size: int, seq_len: int, dtype) -> int:
-    """等价标准 MHA cache 字节数（K + V 各存 num_heads 份 full head）。已给，用于对比。"""
+    """等价标准 MHA cache 字节数（K 与 V 均按各自 head dim 计）。已给，用于对比。"""
     bpe = torch.finfo(dtype).bits // 8
     per_token = cfg.num_heads * (cfg.qk_nope_head_dim + cfg.qk_rope_head_dim + cfg.v_head_dim)
-    return batch_size * seq_len * per_token * 2 * bpe
+    return batch_size * seq_len * per_token * bpe
 
 
 class MLACache:

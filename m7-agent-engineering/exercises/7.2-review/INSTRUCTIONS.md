@@ -103,8 +103,8 @@ promises the code doesn't keep.
 2. For every bug you missed: read the mechanism section and write a
    one-sentence explanation *in your own words* of why it's wrong.
 3. Write the missing tests (the ones that would expose the P0 correctness bugs).
-4. Fill in the POSTMORTEM in `docs/7.2/POSTMORTEM.md` (template provided in
-   the exercise docs folder).
+4. Complete the reflection prompts in the **Self-assessment** section of
+   `review_template.md`.
 
 ---
 

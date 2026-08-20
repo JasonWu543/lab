@@ -109,6 +109,16 @@ class TestT1BlockManager:
         big_seq = Sequence(Request(req_id=99, prompt_ids=list(range(1, 21)), max_new_tokens=1))
         assert bm.can_allocate(big_seq) is False
 
+    def test_allocate_reserves_first_decode_slot(self):
+        """Boundary-aligned prefills must not over-admit the first decode slot."""
+        bm = BlockManager(num_blocks=2, block_size=4)
+        first = Sequence(Request(req_id=0, prompt_ids=[1, 2, 3, 4], max_new_tokens=2))
+        second = Sequence(Request(req_id=1, prompt_ids=[5, 6, 7, 8], max_new_tokens=2))
+        assert bm.can_allocate(first)
+        bm.allocate(first)
+        assert len(first.block_table) == 2
+        assert not bm.can_allocate(second)
+
     def test_refcount_after_allocate(self):
         """前缀缓存命中块的 refcount 应正确累积（两个 seq 共享前缀）。"""
         bm = BlockManager(num_blocks=32, block_size=4)
@@ -142,8 +152,8 @@ class TestT1BlockManager:
         bm.allocate(seq)
         blocks_before = len(seq.block_table)
 
-        # 模拟 decode 4 个 token（跨块边界）
-        for i in range(4):
+        # 模拟 decode 5 个 token（跨过 prefill 已预留的首个 decode 块）
+        for i in range(5):
             seq.output_ids.append(100 + i)
             bm.append_slot(seq)
 
@@ -175,6 +185,13 @@ class TestT2Correctness:
             assert results[r.req_id] == oracle, (
                 f"req {r.req_id}: engine={results[r.req_id]}, oracle={oracle}"
             )
+
+    def test_finished_prefill_does_not_allocate_unused_output_kv(self, tiny_model):
+        """A one-token request can finish with a block-aligned, full pool."""
+        prompt = [1, 2, 3, 4]
+        engine = Engine(tiny_model, num_blocks=1, block_size=4, max_batch_tokens=32)
+        engine.add_request(Request(req_id=0, prompt_ids=prompt, max_new_tokens=1))
+        assert engine.run()[0] == _oracle(tiny_model, prompt, 1)
 
 
 # ─────────────────────────────────── T3 ──────────────────────────────────────
@@ -290,6 +307,15 @@ class TestT5PrefixCache:
 
         oracle = _oracle(tiny_model, shared + [20, 21], 4)
         assert results[1] == oracle, f"prefix cache 下输出错误: {results[1]} vs {oracle}"
+
+    def test_exact_full_prompt_hit_output_correct(self, tiny_model):
+        """An aligned prompt may be fully cached but still needs one model input."""
+        prompt = list(range(1, 9))
+        engine = Engine(tiny_model, num_blocks=16, block_size=4, max_batch_tokens=32)
+        engine.add_request(Request(req_id=0, prompt_ids=prompt, max_new_tokens=2))
+        engine.run()
+        engine.add_request(Request(req_id=1, prompt_ids=prompt, max_new_tokens=2))
+        assert engine.run()[1] == _oracle(tiny_model, prompt, 2)
 
     def test_refcount_zero_after_free(self, tiny_model):
         """free 后前缀块 refcount 归零，且可以被新分配重新使用（num_free_blocks 增加）。"""

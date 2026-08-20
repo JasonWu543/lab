@@ -217,13 +217,14 @@ def train(args):
 
     # 构造模型
     model = build_model(args.seed)
-    ref_model = copy.deepcopy(model)
-    ref_model.requires_grad_(False)
-    ref_model.eval()
-
     # SFT 预热
     if args.sft_steps > 0:
         sft_warmup(model, tok, args.sft_steps, args.sft_lr)
+
+    # KL 的 reference 必须是 RL 起点（即 SFT 预热后的策略）。
+    ref_model = copy.deepcopy(model)
+    ref_model.requires_grad_(False)
+    ref_model.eval()
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     generator = torch.Generator().manual_seed(args.seed)

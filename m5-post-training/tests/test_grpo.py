@@ -3,8 +3,8 @@
 Run:
     python3 -m pytest tests/test_grpo.py -x -q
 
-T6 超参（经 3 次连跑验证稳定通过，delta=0.321 > 0.3，约 13s/run）：
-    SFT 预热：100 步，lr=1e-2，batch 轮转 16 对加法样本（a,b∈[1,4]）
+T6 超参：
+    SFT 预热：35 步，lr=1e-2，预热后快照 reference
     GRPO：60 轮，G=4，lr=5e-3，clip_eps=0.2，kl_coef=0.001
     max_new_tokens=4，temperature=1.0
     任务：个位数加法 a,b∈[1,4]，答案≤8，prompt="Q:{a}+{b}=\nA:"
@@ -373,6 +373,16 @@ class TestT4K3NonNeg:
         _, stats = grpo_loss(logps, logps.clone(), ref_logps, advantages, mask)
         assert stats["kl"].item() >= -1e-6
 
+        # log-ratio 接近 0 时也要防止灾难性消去。
+        diff = torch.linspace(-1e-3, 1e-3, 20001)
+        logps = torch.zeros_like(diff).unsqueeze(0)
+        ref_logps = diff.unsqueeze(0)
+        advantages = torch.zeros(1)
+        mask = torch.ones_like(logps, dtype=torch.long)
+        _, stats = grpo_loss(logps, logps.clone(), ref_logps, advantages, mask)
+        expected = (torch.expm1(diff) - diff).mean()
+        assert torch.allclose(stats["kl"], expected, atol=1e-12, rtol=0)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # T5  rollout 记账
@@ -461,8 +471,8 @@ class TestT5Rollout:
 # T6  端到端收敛（bandit 级）
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# 超参（连跑 3 次稳定通过，delta ≈ 0.321）：
-#   SFT 预热：100 步，lr=1e-2
+# 超参：
+#   SFT 预热：35 步，lr=1e-2，然后快照 reference
 #   GRPO：60 轮，G=4，lr=5e-3，clip_eps=0.2，kl_coef=0.001
 #   max_new_tokens=4，temperature=1.0，generator seed=42
 #   任务：个位数加法 a,b∈[1,4]
@@ -539,12 +549,13 @@ class TestT6EndToEnd:
         torch.manual_seed(0)
         tok = ByteTokenizer()
         model = _tiny_model(seed=0)
+        # 格式预热后再快照 RL reference。
+        _sft_warmup(model, tok, n_steps=35, lr=1e-2)
+
+        # reference 是 RL 起点，应在 SFT 预热后快照。
         ref_model = copy.deepcopy(model)
         ref_model.requires_grad_(False)
         ref_model.eval()
-
-        # SFT 预热 100 步（超参经 3 次连跑验证）
-        _sft_warmup(model, tok, n_steps=100, lr=1e-2)
 
         # GRPO 训练
         optimizer = torch.optim.AdamW(model.parameters(), lr=5e-3)
